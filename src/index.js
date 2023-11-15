@@ -1,6 +1,14 @@
 require("dotenv").config();
-
 const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
+const {
+  LIKES,
+  RETWEETS,
+  REPLIES,
+  API,
+  TWITTER,
+  REGEX,
+} = require("./constants");
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -8,7 +16,6 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
   ],
 });
-import { ICONS, URLS, REGEX } from "./constants";
 
 const tweetEmbed = (
   opUsername,
@@ -25,10 +32,10 @@ const tweetEmbed = (
   image
 ) => {
   const authorName = `${opUsername} (@${opTag})`;
-  const authorURL = `${URLS.TWITTER}${opTag}`;
-  const likes = `${ICONS.LIKES} ${tweetLikes}    `;
-  const retweets = `${ICONS.RETWEETS} ${tweetRetweets}    `;
-  const replies = `${ICONS.REPLIES} ${tweetReplies}`;
+  const authorURL = `${TWITTER}${opTag}`;
+  const likes = `${LIKES} ${tweetLikes}    `;
+  const retweets = `${RETWEETS} ${tweetRetweets}    `;
+  const replies = `${REPLIES} ${tweetReplies}`;
   const footerContent = `Posted by ${rUsername} ${
     rContent.length > 0 ? `- "${rContent}"` : ""
   }`;
@@ -61,14 +68,14 @@ client.on("messageCreate", async (message) => {
   const nickname = serverUser.nickname;
   const avatar = serverUser.displayAvatarURL();
   matches = message.content.match(REGEX);
-
   if (matches && matches[3]) {
-    const response = await fetch(`${URL}${matches[3]}`);
+    const response = await fetch(`${API}${matches[3]}`);
     if (response.status >= 400) return false;
 
     message.delete();
 
     const data = await response.json();
+
     const content = message.content.replace(matches[0], "").trim();
     const videoURLS = data.media_extended
       .filter((media) => media.type == "video")
@@ -100,12 +107,28 @@ client.on("messageCreate", async (message) => {
     const imageEmbeds = imageURLS
       .slice(1)
       .map((imageURL) =>
-        imageEmbed(`https://twitter.com/${data.user_screen_name}`, imageURL)
+        imageEmbed(`${CONST.TWITTER}${data.user_screen_name}`, imageURL)
       );
 
     await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
-    if (videoURLS.length > 0) await message.channel.send({ files: videoURLS });
-    if (gifURLS.length > 0) await message.channel.send({ files: gifURLS });
+    if (videoURLS.length > 0) {
+      const response = await fetch(videoURLS[0], { method: "HEAD" });
+      size = parseInt(
+        Object.fromEntries(response.headers.entries())["content-length"]
+      );
+      await message.channel.send(
+        size > 8000000 ? videoURLS[0] : { files: videoURLS }
+      );
+    }
+    if (gifURLS.length > 0) {
+      const response = await fetch(videoURLS[0], { method: "HEAD" });
+      size = parseInt(
+        Object.fromEntries(response.headers.entries())["content-length"]
+      );
+      await message.channel.send(
+        size > 8000000 ? gifURLS[0] : { files: gifURLS }
+      );
+    }
   }
 });
 
