@@ -69,7 +69,7 @@ client.on("messageCreate", async (message) => {
   const avatar = serverUser.displayAvatarURL();
   const matches = message.content.match(REGEX);
   if (matches && matches[3]) {
-    console.log(`Tweet link: ${matches[3]}`);
+    console.log(`Tweet ID: ${matches[3]}`);
     const response = await fetch(`${API}${matches[3]}`);
     if (response.status >= 400) return false;
 
@@ -110,7 +110,7 @@ client.on("messageCreate", async (message) => {
     const imageEmbeds = imageURLS
       .slice(1)
       .map((imageURL) =>
-        imageEmbed(`${CONST.TWITTER}${data.user_screen_name}`, imageURL)
+        imageEmbed(`${TWITTER}${data.user_screen_name}`, imageURL)
       );
 
     await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
