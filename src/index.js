@@ -109,9 +109,7 @@ client.on("messageCreate", async (message) => {
 
     const imageEmbeds = imageURLS
       .slice(1)
-      .map((imageURL) =>
-        imageEmbed(`${TWITTER}${data.user_screen_name}`, imageURL)
-      );
+      .map((imageURL) => imageEmbed(data.tweetURL, imageURL));
 
     await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
     if (videoURLS.length > 0) {
