@@ -67,14 +67,17 @@ client.on("messageCreate", async (message) => {
   const serverUser = await message.guild.members.fetch(message.author);
   const nickname = serverUser.nickname;
   const avatar = serverUser.displayAvatarURL();
-  matches = message.content.match(REGEX);
+  const matches = message.content.match(REGEX);
   if (matches && matches[3]) {
+    console.log(`Tweet link: ${matches[3]}`);
     const response = await fetch(`${API}${matches[3]}`);
     if (response.status >= 400) return false;
 
     message.delete();
 
     const data = await response.json();
+    console.log("Data:");
+    console.log(data);
 
     const content = message.content.replace(matches[0], "").trim();
     const videoURLS = data.media_extended
