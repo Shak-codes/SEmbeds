@@ -53,10 +53,8 @@ const tweetEmbed = (
       iconURL: linkPosterIconURL,
     });
 
-const imageEmbed = (tweetURL, imageURL) => {
-  const embed = new EmbedBuilder().setURL(tweetURL).setImage(imageURL);
-  return embed;
-};
+const imageEmbed = (tweetURL, imageURL) =>
+  new EmbedBuilder().setURL(tweetURL).setImage(imageURL);
 
 client.on("ready", (client) => {
   console.log(`${client.user.tag} is ready!`);
