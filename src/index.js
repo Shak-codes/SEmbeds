@@ -18,39 +18,40 @@ const client = new Client({
 });
 
 const tweetEmbed = (
-  opUsername,
-  opTag,
-  opPFP,
+  authorName,
+  authorTag,
+  authorIconURL,
   tweetURL,
   tweetContent,
   tweetLikes,
   tweetRetweets,
   tweetReplies,
-  rUsername,
-  rPFP,
-  rContent,
+  linkPosterUsername,
+  linkPosterIconURL,
+  linkPosterContent,
   image
-) => {
-  const authorName = `${opUsername} (@${opTag})`;
-  const authorURL = `${TWITTER}${opTag}`;
-  const likes = `${LIKES} ${tweetLikes}    `;
-  const retweets = `${RETWEETS} ${tweetRetweets}    `;
-  const replies = `${REPLIES} ${tweetReplies}`;
-  const footerContent = `Posted by ${rUsername} ${
-    rContent.length > 0 ? `- "${rContent}"` : ""
-  }`;
-  const embed = new EmbedBuilder()
+) =>
+  new EmbedBuilder()
     .setColor(0x0099ff)
-    .setAuthor({ name: authorName, url: authorURL, iconURL: opPFP })
+    .setAuthor({
+      name: `${authorName} (@${authorTag})`,
+      url: `${TWITTER}${authorTag}`,
+      iconURL: authorIconURL,
+    })
     .setTitle("Tweet")
     .setURL(tweetURL)
     .setDescription(tweetContent)
-    .addFields({ name: `${likes}${retweets}${replies}`, value: ` ` })
+    .addFields({
+      name: `${LIKES} ${tweetLikes}    ${RETWEETS} ${tweetRetweets}    ${REPLIES} ${tweetReplies}`,
+      value: ` `,
+    })
     .setImage(image)
-    .setFooter({ text: footerContent, iconURL: rPFP });
-
-  return embed;
-};
+    .setFooter({
+      text: `Posted by ${linkPosterUsername} ${
+        linkPosterContent.length > 0 ? `- "${linkPosterContent}"` : ""
+      }`,
+      iconURL: linkPosterIconURL,
+    });
 
 const imageEmbed = (tweetURL, imageURL) => {
   const embed = new EmbedBuilder().setURL(tweetURL).setImage(imageURL);
@@ -66,8 +67,8 @@ client.on("messageCreate", async (message) => {
   author = message.author.id;
   if (author == "1169070294451892285" && Math.floor(Math.random() * 10) == 9) {
     message.delete();
-    console.log("Deleted Rivians message")
-    return true 
+    console.log("Deleted Rivians message");
+    return true;
   }
 
   const serverUser = await message.guild.members.fetch(message.author);
