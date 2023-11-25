@@ -61,83 +61,146 @@ client.on("ready", (client) => {
 });
 
 client.on("messageCreate", async (message) => {
-  if (message.author.bot) return false;
-  author = message.author.id;
-  if (author == "1169070294451892285" && Math.floor(Math.random() * 10) == 9) {
-    message.delete();
+  if (message.author.bot) return;
+
+  const author = message.author.id;
+  if (shouldDeleteRivianMessage(author)) {
+    deleteMessage(message);
     console.log("Deleted Rivians message");
-    return true;
+    return;
   }
 
-  const serverUser = await message.guild.members.fetch(message.author);
-  const nickname = serverUser.nickname;
-  const avatar = serverUser.displayAvatarURL();
+  const serverUser = await getServerUser(message);
+  const { nickname, avatar } = getNicknameAndAvatar(serverUser);
+
   const matches = message.content.match(REGEX);
   if (matches && matches[3]) {
     console.log(`Tweet ID: ${matches[3]}`);
-    const response = await fetch(`${API}${matches[3]}`);
-    if (response.status >= 400) return false;
+    const data = await fetchData(matches[3]);
 
-    message.delete();
+    if (!data) return;
+    console.log("Tweet data obtained");
+    const { tweetContent, imageURLS, videoURLS, gifURLS } =
+      processTweetData(data);
+    const linkPosterContent = message.content.replace(matches[0], "").trim();
+    console.log(`Tweet content: ${tweetContent}`);
+    console.log(`Tweet images`);
+    console.table(imageURLS);
+    console.log(`Tweet videos`);
+    console.table(videoURLS);
+    console.log(`Tweet gifs`);
+    console.table(gifURLS);
 
-    const data = await response.json();
-    console.log("Data:");
-    console.log(data);
-
-    const content = message.content.replace(matches[0], "").trim();
-    const videoURLS = data.media_extended
-      .filter((media) => media.type == "video")
-      .map((video) => video.url);
-    const imageURLS = data.media_extended
-      .filter((media) => media.type == "image")
-      .map((image) => image.url);
-    const gifURLS = data.media_extended
-      .filter((media) => media.type == "gif")
-      .map((gif) => gif.url);
-
-    const mainEmbed = tweetEmbed(
-      data.user_name,
-      data.user_screen_name,
-      data.user_profile_image_url,
-      data.tweetURL,
-      data.text,
-      data.likes,
-      data.retweets,
-      data.replies,
-      nickname
-        ? `${nickname} (${message.author.displayName})`
-        : message.author.displayName,
+    const mainEmbed = createMainTweetEmbed(
+      message,
+      data,
+      nickname,
       avatar,
-      content,
+      tweetContent,
+      linkPosterContent,
       imageURLS[0]
     );
 
-    const imageEmbeds = imageURLS
-      .slice(1)
-      .map((imageURL) => imageEmbed(data.tweetURL, imageURL));
+    console.log("Main embed created!");
+
+    const imageEmbeds = createImageEmbeds(data.tweetURL, imageURLS.slice(1));
+
+    deleteMessage(message);
 
     await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
-    if (videoURLS.length > 0) {
-      console.log(`Getting gif data via API call to ${videoURLS[0]}`);
-      const response = await fetch(videoURLS[0], { method: "HEAD" });
-      size = parseInt(
-        Object.fromEntries(response.headers.entries())["content-length"]
-      );
-      await message.channel.send(
-        size > 8000000 ? videoURLS[0] : { files: videoURLS }
-      );
-    }
-    if (gifURLS.length > 0) {
-      console.log(`Getting gif data via API call to ${gifURLS[0]}`);
-      const response = await fetch(gifURLS[0], { method: "HEAD" });
-      size = parseInt(
-        Object.fromEntries(response.headers.entries())["content-length"]
-      );
-      await message.channel.send(
-        size > 8000000 ? gifURLS[0] : { files: gifURLS }
-      );
-    }
+
+    sendMediaIfAvailable(
+      message.channel,
+      videoURLS[0],
+      "Getting gif data via API call to"
+    );
+    sendMediaIfAvailable(
+      message.channel,
+      gifURLS[0],
+      "Getting gif data via API call to"
+    );
   }
 });
+
+function shouldDeleteRivianMessage(author) {
+  return (
+    author === "1169070294451892285" && Math.floor(Math.random() * 10) === 9
+  );
+}
+
+function deleteMessage(message) {
+  message.delete();
+}
+
+async function getServerUser(message) {
+  return await message.guild.members.fetch(message.author);
+}
+
+function getNicknameAndAvatar(serverUser) {
+  const nickname = serverUser.nickname;
+  const avatar = serverUser.displayAvatarURL();
+  return { nickname, avatar };
+}
+
+async function fetchData(tweetID) {
+  const response = await fetch(`${API}${tweetID}`);
+  return response.status >= 400 ? null : await response.json();
+}
+
+function processTweetData(data) {
+  const tweetContent = data.text;
+  const imageURLS = getMediaURLsByType(data.media_extended, "image");
+  const videoURLS = getMediaURLsByType(data.media_extended, "video");
+  const gifURLS = getMediaURLsByType(data.media_extended, "gif");
+  return { tweetContent, imageURLS, videoURLS, gifURLS };
+}
+
+function getMediaURLsByType(mediaList, type) {
+  return mediaList
+    .filter((media) => media.type === type)
+    .map((item) => item.url);
+}
+
+function createMainTweetEmbed(
+  message,
+  data,
+  nickname,
+  avatar,
+  tweetContent,
+  linkPosterContent,
+  imageURL
+) {
+  return tweetEmbed(
+    data.user_name,
+    data.user_screen_name,
+    data.user_profile_image_url,
+    data.tweetURL,
+    tweetContent,
+    data.likes,
+    data.retweets,
+    data.replies,
+    nickname
+      ? `${nickname} (${message.author.displayName})`
+      : message.author.displayName,
+    avatar,
+    linkPosterContent,
+    imageURL
+  );
+}
+
+function createImageEmbeds(tweetURL, imageURLs) {
+  return imageURLs.map((imageURL) => imageEmbed(tweetURL, imageURL));
+}
+
+async function sendMediaIfAvailable(channel, mediaURL, logMessage) {
+  if (mediaURL) {
+    console.log(`${logMessage} ${mediaURL}`);
+    const response = await fetch(mediaURL, { method: "HEAD" });
+    const size = parseInt(
+      Object.fromEntries(response.headers.entries())["content-length"]
+    );
+    await channel.send(size > 8000000 ? mediaURL : { files: [mediaURL] });
+  }
+}
 
 client.login(process.env.TOKEN);
