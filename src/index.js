@@ -63,6 +63,12 @@ client.on("ready", (client) => {
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return false;
+  author = message.author.id;
+  if (author == "1169070294451892285" && Math.floor(Math.random() * 10) == 9) {
+    message.delete();
+    console.log("Deleted Rivians message")
+    return true 
+  }
 
   const serverUser = await message.guild.members.fetch(message.author);
   const nickname = serverUser.nickname;
@@ -113,6 +119,7 @@ client.on("messageCreate", async (message) => {
 
     await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
     if (videoURLS.length > 0) {
+      console.log(`Getting gif data via API call to ${videoURLS[0]}`);
       const response = await fetch(videoURLS[0], { method: "HEAD" });
       size = parseInt(
         Object.fromEntries(response.headers.entries())["content-length"]
@@ -122,7 +129,8 @@ client.on("messageCreate", async (message) => {
       );
     }
     if (gifURLS.length > 0) {
-      const response = await fetch(videoURLS[0], { method: "HEAD" });
+      console.log(`Getting gif data via API call to ${gifURLS[0]}`);
+      const response = await fetch(gifURLS[0], { method: "HEAD" });
       size = parseInt(
         Object.fromEntries(response.headers.entries())["content-length"]
       );
