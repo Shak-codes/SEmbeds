@@ -63,8 +63,8 @@ client.on("ready", (client) => {
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
-  const author = message.author.id;
-  if (shouldDeleteRivianMessage(author)) {
+  const authorID = message.author.id;
+  if (shouldDeleteRivianMessage(authorID)) {
     deleteMessage(message);
     console.log("Deleted Rivians message");
     return;
@@ -122,9 +122,9 @@ client.on("messageCreate", async (message) => {
   }
 });
 
-function shouldDeleteRivianMessage(author) {
+function shouldDeleteRivianMessage(authorID) {
   return (
-    author === "1169070294451892285" && Math.floor(Math.random() * 10) === 9
+    authorID === "1169070294451892285" && Math.floor(Math.random() * 10) === 9
   );
 }
 
