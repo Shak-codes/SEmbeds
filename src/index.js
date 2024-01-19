@@ -87,7 +87,6 @@ client.on("messageCreate", async (message) => {
       nickname,
       avatar,
       tweetContent,
-      linkPosterContent,
       imageURLS[0]
     );
 
@@ -96,15 +95,13 @@ client.on("messageCreate", async (message) => {
     const imageEmbeds = createImageEmbeds(data.tweetURL, imageURLS.slice(1));
 
     if (linkPosterContent.length > 0) {
+      message.suppressEmbeds(true);
+      await message.reply({ embeds: [mainEmbed, ...imageEmbeds] });
+    } else {
       deleteMessage(message);
       await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
     }
-    else {
-      await message.reply({ embeds: [mainEmbed, ...imageEmbeds] });
-    }
-
-    
-
+      
     sendMediaIfAvailable(
       message.channel,
       videoURLS[0],
