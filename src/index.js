@@ -15,6 +15,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
   ],
+  allowedMentions: { parse: [] },
 });
 
 const tweetEmbed = (
@@ -96,7 +97,7 @@ client.on("messageCreate", async (message) => {
 
     if (linkPosterContent.length > 0) {
       message.suppressEmbeds(true);
-      await message.reply({ embeds: [mainEmbed, ...imageEmbeds] });
+      await message.reply({ embeds: [mainEmbed, ...imageEmbeds], repliedUser: false });
     } else {
       deleteMessage(message);
       await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
