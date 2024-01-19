@@ -28,7 +28,6 @@ const tweetEmbed = (
   tweetReplies,
   linkPosterUsername,
   linkPosterIconURL,
-  linkPosterContent,
   image
 ) =>
   new EmbedBuilder()
@@ -47,9 +46,7 @@ const tweetEmbed = (
     })
     .setImage(image)
     .setFooter({
-      text: `Posted by ${linkPosterUsername} ${
-        linkPosterContent.length > 0 ? `- "${linkPosterContent}"` : ""
-      }`,
+      text: `Posted by ${linkPosterUsername}`,
       iconURL: linkPosterIconURL,
     });
 
@@ -62,13 +59,6 @@ client.on("ready", (client) => {
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
-
-  const authorID = message.author.id;
-  if (shouldDeleteRivianMessage(authorID)) {
-    deleteMessage(message);
-    console.log("Deleted Rivians message");
-    return;
-  }
 
   const serverUser = await getServerUser(message);
   const { nickname, avatar } = getNicknameAndAvatar(serverUser);
@@ -105,9 +95,15 @@ client.on("messageCreate", async (message) => {
 
     const imageEmbeds = createImageEmbeds(data.tweetURL, imageURLS.slice(1));
 
-    deleteMessage(message);
+    if (linkPosterContent.length > 0) {
+      deleteMessage(message);
+      await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
+    }
+    else {
+      await message.reply({ embeds: [mainEmbed, ...imageEmbeds] });
+    }
 
-    await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
+    
 
     sendMediaIfAvailable(
       message.channel,
@@ -121,12 +117,6 @@ client.on("messageCreate", async (message) => {
     );
   }
 });
-
-function shouldDeleteRivianMessage(authorID) {
-  return (
-    authorID === "1169070294451892285" && Math.floor(Math.random() * 10) === 9
-  );
-}
 
 function deleteMessage(message) {
   message.delete();
@@ -167,7 +157,6 @@ function createMainTweetEmbed(
   nickname,
   avatar,
   tweetContent,
-  linkPosterContent,
   imageURL
 ) {
   return tweetEmbed(
@@ -183,7 +172,6 @@ function createMainTweetEmbed(
       ? `${nickname} (${message.author.displayName})`
       : message.author.displayName,
     avatar,
-    linkPosterContent,
     imageURL
   );
 }
