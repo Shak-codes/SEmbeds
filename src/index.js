@@ -1,5 +1,38 @@
 require("dotenv").config();
 const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
+const deepl = require('deepl-node');
+const fasttext = require('fasttext');
+const path = require('path');
+
+const authKey = process.env.DEEPL; // Replace with your key
+const translator = new deepl.Translator(authKey);
+const classifier = new fasttext.Classifier();
+
+const modelPath = path.join(__dirname, '..', 'lid.176.ftz');
+
+classifier.loadModel(modelPath, function (err) {
+    if (err) {
+        console.error('Error loading model:', err);
+        return;
+    }
+    console.log('FastText model loaded successfully.');
+});
+
+function detectLanguage(text) {
+  return new Promise((resolve, reject) => {
+    classifier.predict(text, 1, function (err, res) {
+      if (err) {
+        console.error('Prediction error:', err);
+        reject(err);
+        return;
+      }
+      const prediction = res[0];
+      const langCode = prediction.label.replace('__label__', '');
+      resolve(langCode);
+    });
+  });
+};
+
 const {
   LIKES,
   RETWEETS,
@@ -24,6 +57,7 @@ const tweetEmbed = (
   authorIconURL,
   tweetURL,
   tweetContent,
+  translated,
   tweetLikes,
   tweetRetweets,
   tweetReplies,
@@ -38,7 +72,7 @@ const tweetEmbed = (
       url: `${TWITTER}${authorTag}`,
       iconURL: authorIconURL,
     })
-    .setTitle("Tweet")
+    .setTitle(translated ? 'Tweet (Translated)' : 'Tweet')
     .setURL(tweetURL)
     .setDescription(tweetContent)
     .addFields({
@@ -71,8 +105,11 @@ client.on("messageCreate", async (message) => {
 
     if (!data) return;
     console.log("Tweet data obtained");
-    const { tweetContent, imageURLS, videoURLS, gifURLS } =
-      processTweetData(data);
+    console.log(data);
+
+    const { tweetContent, translated, imageURLS, videoURLS, gifURLS } =
+      await processTweetData(data);
+
     const linkPosterContent = message.content.replace(matches[0], "").trim();
     console.log(`Tweet content: ${tweetContent}`);
     console.log(`Tweet images`);
@@ -88,6 +125,7 @@ client.on("messageCreate", async (message) => {
       nickname,
       avatar,
       tweetContent,
+      translated,
       imageURLS[0]
     );
 
@@ -102,13 +140,13 @@ client.on("messageCreate", async (message) => {
       deleteMessage(message);
       await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
     }
-      
-    sendMediaIfAvailable(
+
+    await sendMediaIfAvailable(
       message.channel,
       videoURLS[0],
       "Getting gif data via API call to"
     );
-    sendMediaIfAvailable(
+    await sendMediaIfAvailable(
       message.channel,
       gifURLS[0],
       "Getting gif data via API call to"
@@ -135,13 +173,40 @@ async function fetchData(tweetID) {
   return response.status >= 400 ? null : await response.json();
 }
 
-function processTweetData(data) {
-  const tweetContent = data.text;
+async function processTweetData(data) {
+  let tweetContent = data.text;
+  let translated = false;
+  console.log('Original tweetContent:', tweetContent);
+
+  try {
+    const langCode = await detectLanguage(tweetContent);
+    console.log('Detected language:', langCode);
+
+    if (langCode !== 'en') {
+      try {
+        const translationResult = await translator.translateText(tweetContent, null, 'EN-US', {
+          splitSentences: 'nonewlines',
+        });
+        tweetContent = translationResult.text;
+        translated = true;
+        console.log(`Translated tweetContent: ${tweetContent}`);
+      } catch (translationError) {
+        console.error('Error translating text:', translationError);
+        // Optionally, proceed with the original text or handle the error differently
+      }
+    }
+  } catch (languageError) {
+    console.error('Error detecting language:', languageError);
+    // Optionally, proceed without translation or handle the error differently
+  }
+
   const imageURLS = getMediaURLsByType(data.media_extended, "image");
   const videoURLS = getMediaURLsByType(data.media_extended, "video");
   const gifURLS = getMediaURLsByType(data.media_extended, "gif");
-  return { tweetContent, imageURLS, videoURLS, gifURLS };
+
+  return { tweetContent, translated, imageURLS, videoURLS, gifURLS };
 }
+
 
 function getMediaURLsByType(mediaList, type) {
   return mediaList
@@ -155,6 +220,7 @@ function createMainTweetEmbed(
   nickname,
   avatar,
   tweetContent,
+  translated,
   imageURL
 ) {
   return tweetEmbed(
@@ -163,6 +229,7 @@ function createMainTweetEmbed(
     data.user_profile_image_url,
     data.tweetURL,
     tweetContent,
+    translated,
     data.likes,
     data.retweets,
     data.replies,
