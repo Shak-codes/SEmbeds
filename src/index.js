@@ -1,37 +1,9 @@
 require("dotenv").config();
 const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 const deepl = require('deepl-node');
-const fasttext = require('fasttext');
-const path = require('path');
 
 const authKey = process.env.DEEPL;
 const translator = new deepl.Translator(authKey);
-const classifier = new fasttext.Classifier();
-
-const modelPath = path.join(__dirname, '..', 'lid.176.ftz');
-
-classifier.loadModel(modelPath, function (err) {
-    if (err) {
-        console.error('Error loading model:', err);
-        return;
-    }
-    console.log('FastText model loaded successfully.');
-});
-
-function detectLanguage(text) {
-  return new Promise((resolve, reject) => {
-    classifier.predict(text, 1, function (err, res) {
-      if (err) {
-        console.error('Prediction error:', err);
-        reject(err);
-        return;
-      }
-      const prediction = res[0];
-      const langCode = prediction.label.replace('__label__', '');
-      resolve(langCode);
-    });
-  });
-};
 
 const {
   LIKES,
