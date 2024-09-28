@@ -77,7 +77,6 @@ client.on("messageCreate", async (message) => {
 
     if (!data) return;
     console.log("Tweet data obtained");
-    console.log(data);
 
     const { text, translated, imageURLS, videoURLS, gifURLS } =
       await processTweetData(data);
@@ -115,12 +114,12 @@ client.on("messageCreate", async (message) => {
 
     await sendMediaIfAvailable(
       message.channel,
-      videoURLS[0],
-      "Getting gif data via API call to"
+      videoURLS,
+      "Getting video data via API call to"
     );
     await sendMediaIfAvailable(
       message.channel,
-      gifURLS[0],
+      gifURLS,
       "Getting gif data via API call to"
     );
   }
@@ -209,15 +208,47 @@ function createImageEmbeds(tweetURL, imageURLs) {
   return imageURLs.map((imageURL) => imageEmbed(tweetURL, imageURL));
 }
 
-async function sendMediaIfAvailable(channel, mediaURL, logMessage) {
-  if (mediaURL) {
-    console.log(`${logMessage} ${mediaURL}`);
-    const response = await fetch(mediaURL, { method: "HEAD" });
-    const size = parseInt(
-      Object.fromEntries(response.headers.entries())["content-length"]
-    );
-    await channel.send(size > 8000000 ? mediaURL : { files: [mediaURL] });
+async function sendMediaIfAvailable(channel, URLS, logMessage) {
+  console.log(logMessage);
+  let media = [];
+  const largeMedia = [];
+  console.log(`Initialized lengths: ${media.length} - ${largeMedia.length}`);
+  let mediaSize = 0;
+  for (let i = 0; i < URLS.length; i++) {
+    if (URLS[i]) {
+      console.log(`${logMessage} ${URLS[i]}`);
+      const response = await fetch(URLS[i], { method: "HEAD" });
+      const size = parseInt(
+        Object.fromEntries(response.headers.entries())["content-length"]
+      );
+      console.log(`size: ${size}`);
+      if (mediaSize + size > 8000000 && mediaSize.length > 0 && size <= 8000000) {
+        await channel.send({ files: media })
+        mediaSize = size;
+        media = [URLS[i]]
+      } else if (mediaSize + size <= 8000000) {
+        mediaSize += size;
+        media.push(URLS[i]);
+      } else {
+        largeMedia.push(URLS[i]);
+      }
+    }
   }
+  console.log(`media length: ${media.length}`);
+  console.log(`large media length: ${largeMedia}`);
+  if (media.length > 0) await channel.send({ files: media });
+  for (let i = 0; i < largeMedia.length; i++) await channel.send(largeMedia[i]);
 }
+
+// async function sendMediaIfAvailable(channel, mediaURL, logMessage) {
+//   if (mediaURL) {
+//     console.log(`${logMessage} ${mediaURL}`);
+//     const response = await fetch(mediaURL, { method: "HEAD" });
+//     const size = parseInt(
+//       Object.fromEntries(response.headers.entries())["content-length"]
+//     );
+//     await channel.send(size > 8000000 ? mediaURL : { files: [mediaURL] });
+//   }
+// }
 
 client.login(process.env.TOKEN);
