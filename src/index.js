@@ -4,7 +4,7 @@ const deepl = require('deepl-node');
 const fasttext = require('fasttext');
 const path = require('path');
 
-const authKey = process.env.DEEPL; // Replace with your key
+const authKey = process.env.DEEPL;
 const translator = new deepl.Translator(authKey);
 const classifier = new fasttext.Classifier();
 
@@ -107,11 +107,11 @@ client.on("messageCreate", async (message) => {
     console.log("Tweet data obtained");
     console.log(data);
 
-    const { tweetContent, translated, imageURLS, videoURLS, gifURLS } =
+    const { text, translated, imageURLS, videoURLS, gifURLS } =
       await processTweetData(data);
 
     const linkPosterContent = message.content.replace(matches[0], "").trim();
-    console.log(`Tweet content: ${tweetContent}`);
+    console.log(`Tweet text: ${text}`);
     console.log(`Tweet images`);
     console.table(imageURLS);
     console.log(`Tweet videos`);
@@ -124,7 +124,7 @@ client.on("messageCreate", async (message) => {
       data,
       nickname,
       avatar,
-      tweetContent,
+      text,
       translated,
       imageURLS[0]
     );
@@ -174,37 +174,29 @@ async function fetchData(tweetID) {
 }
 
 async function processTweetData(data) {
-  let tweetContent = data.text;
-  let translated = false;
-  console.log('Original tweetContent:', tweetContent);
-
-  try {
-    const langCode = await detectLanguage(tweetContent);
-    console.log('Detected language:', langCode);
-
-    if (langCode !== 'en') {
-      try {
-        const translationResult = await translator.translateText(tweetContent, null, 'EN-US', {
-          splitSentences: 'nonewlines',
-        });
-        tweetContent = translationResult.text;
-        translated = true;
-        console.log(`Translated tweetContent: ${tweetContent}`);
-      } catch (translationError) {
-        console.error('Error translating text:', translationError);
-        // Optionally, proceed with the original text or handle the error differently
-      }
-    }
-  } catch (languageError) {
-    console.error('Error detecting language:', languageError);
-    // Optionally, proceed without translation or handle the error differently
-  }
+  const { text, lang } = data;
+  const translated = lang === "en" ? false : true;
 
   const imageURLS = getMediaURLsByType(data.media_extended, "image");
   const videoURLS = getMediaURLsByType(data.media_extended, "video");
   const gifURLS = getMediaURLsByType(data.media_extended, "gif");
 
-  return { tweetContent, translated, imageURLS, videoURLS, gifURLS };
+  const response = { text, translated, imageURLS, videoURLS, gifURLS };
+
+  if (!translated) return response;
+
+  try {
+    const translation = await translator.translateText(text, null, 'EN-US', {
+      splitSentences: 'nonewlines',
+    });
+    const translatedText = translation.text;
+    response.text = translatedText;
+    console.log(`Translated tweetContent: ${translatedText}`);
+  } catch (translationError) {
+    console.error('Error translating text:', translationError);
+    response.translated = false;
+  }
+  return response;
 }
 
 
@@ -219,7 +211,7 @@ function createMainTweetEmbed(
   data,
   nickname,
   avatar,
-  tweetContent,
+  text,
   translated,
   imageURL
 ) {
@@ -228,7 +220,7 @@ function createMainTweetEmbed(
     data.user_screen_name,
     data.user_profile_image_url,
     data.tweetURL,
-    tweetContent,
+    text,
     translated,
     data.likes,
     data.retweets,
