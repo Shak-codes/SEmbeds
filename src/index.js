@@ -5,14 +5,7 @@ const deepl = require('deepl-node');
 const authKey = process.env.DEEPL;
 const translator = new deepl.Translator(authKey);
 
-const {
-  LIKES,
-  RETWEETS,
-  REPLIES,
-  API,
-  TWITTER,
-  REGEX,
-} = require("./constants");
+const config = require("./constants");
 
 const client = new Client({
   intents: [
@@ -41,14 +34,14 @@ const tweetEmbed = (
     .setColor(0x0099ff)
     .setAuthor({
       name: `${authorName} (@${authorTag})`,
-      url: `${TWITTER}${authorTag}`,
+      url: `${config.ENDPOINTS.BASE.TWITTER}${authorTag}`,
       iconURL: authorIconURL,
     })
     .setTitle(translated ? 'Tweet (Translated)' : 'Tweet')
     .setURL(tweetURL)
     .setDescription(tweetContent)
     .addFields({
-      name: `${LIKES} ${tweetLikes}    ${RETWEETS} ${tweetRetweets}    ${REPLIES} ${tweetReplies}`,
+      name: `${config.EMOJIS.LIKES} ${tweetLikes}    ${config.EMOJIS.RETWEETS} ${tweetRetweets}    ${config.EMOJIS.REPLIES} ${tweetReplies}`,
       value: ` `,
     })
     .setImage(image)
@@ -70,7 +63,7 @@ client.on("messageCreate", async (message) => {
   const serverUser = await getServerUser(message);
   const { nickname, avatar } = getNicknameAndAvatar(serverUser);
 
-  const matches = message.content.match(REGEX);
+  const matches = message.content.match(config.ENDPOINTS.REGEX.TWITTER);
   if (matches && matches[3]) {
     console.log(`Tweet ID: ${matches[3]}`);
     const data = await fetchData(matches[3]);
@@ -141,7 +134,7 @@ function getNicknameAndAvatar(serverUser) {
 }
 
 async function fetchData(tweetID) {
-  const response = await fetch(`${API}${tweetID}`);
+  const response = await fetch(`${config.ENDPOINTS.API}${tweetID}`);
   return response.status >= 400 ? null : await response.json();
 }
 
