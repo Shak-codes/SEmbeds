@@ -234,15 +234,4 @@ async function sendMediaIfAvailable(channel, URLS, logMessage) {
   for (let i = 0; i < largeMedia.length; i++) await channel.send(largeMedia[i]);
 }
 
-// async function sendMediaIfAvailable(channel, mediaURL, logMessage) {
-//   if (mediaURL) {
-//     console.log(`${logMessage} ${mediaURL}`);
-//     const response = await fetch(mediaURL, { method: "HEAD" });
-//     const size = parseInt(
-//       Object.fromEntries(response.headers.entries())["content-length"]
-//     );
-//     await channel.send(size > 8000000 ? mediaURL : { files: [mediaURL] });
-//   }
-// }
-
 client.login(process.env.TOKEN);
