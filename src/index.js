@@ -82,6 +82,7 @@ client.on("messageCreate", async (message) => {
       await processTweetData(data);
 
     const linkPosterContent = message.content.replace(matches[0], "").trim();
+    console.log(`Discord message content: ${linkPosterContent}`);
     console.log(`Tweet text: ${text}`);
     console.log(`Tweet images`);
     console.table(imageURLS);
