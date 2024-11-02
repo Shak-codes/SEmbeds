@@ -3,6 +3,8 @@ const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 const deepl = require('deepl-node');
 
 const authKey = process.env.DEEPL;
+const IDENTIFIER = process.env.IDENTIFIER;
+const PASSWORD = process.env.PASSWORD;
 const translator = new deepl.Translator(authKey);
 
 const config = require("./constants");
@@ -18,7 +20,35 @@ const client = new Client({
 
 client.on("ready", (client) => {
   console.log(`${client.user.tag} is ready!`);
+  getBlueskyAccessJwt();
 });
+
+async function getBlueskyAccessJwt() {
+  const url = `${config.ENDPOINTS.BASE.BLUESKY}${config.ENDPOINTS.BLUESKY.JWT}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ identifier: IDENTIFIER, password: PASSWORD })
+  });
+
+  const { accessJwt } = await response.json();
+  console.log(accessJwt);
+
+  const jwtPayload = JSON.parse(atob(accessJwt.split('.')[1]));
+  const expTimestamp = jwtPayload.exp;
+
+  const tokenData = {
+    accessJwt,
+    expiresAt: expTimestamp
+  };
+
+  console.log("Access JWT and expiration:", tokenData);
+  return tokenData;
+
+}
 
 const tweetEmbed = (
   data,
@@ -60,59 +90,57 @@ client.on("messageCreate", async (message) => {
   const matches = message.content.match(config.ENDPOINTS.REGEX.TWITTER);
   if (!(matches && matches[3])) return;
   
-  if (matches && matches[3]) {
-    console.log(`Tweet ID: ${matches[3]}`);
-    const data = await fetchData(matches[3]);
+  console.log(`Tweet ID: ${matches[3]}`);
+  const data = await fetchData(matches[3]);
 
-    if (!data) return;
-    console.log("Tweet data obtained");
+  if (!data) return;
+  console.log("Tweet data obtained");
 
-    const { text, translated, imageURLS, videoURLS, gifURLS } =
-      await processTweetData(data);
+  const { text, translated, imageURLS, videoURLS, gifURLS } =
+    await processTweetData(data);
 
-    const linkPosterContent = message.content.replace(matches[0], "").trim();
-    console.log(`Discord message content: ${linkPosterContent}`);
-    console.log(`Tweet text: ${text}`);
-    console.log(`Tweet images`);
-    console.table(imageURLS);
-    console.log(`Tweet videos`);
-    console.table(videoURLS);
-    console.log(`Tweet gifs`);
-    console.table(gifURLS);
+  const linkPosterContent = message.content.replace(matches[0], "").trim();
+  console.log(`Discord message content: ${linkPosterContent}`);
+  console.log(`Tweet text: ${text}`);
+  console.log(`Tweet images`);
+  console.table(imageURLS);
+  console.log(`Tweet videos`);
+  console.table(videoURLS);
+  console.log(`Tweet gifs`);
+  console.table(gifURLS);
 
-    const mainEmbed = createMainTweetEmbed(
-      message,
-      data,
-      nickname,
-      avatar,
-      text,
-      translated,
-      imageURLS[0]
-    );
+  const mainEmbed = createMainTweetEmbed(
+    message,
+    data,
+    nickname,
+    avatar,
+    text,
+    translated,
+    imageURLS[0]
+  );
 
-    console.log("Main embed created!");
+  console.log("Main embed created!");
 
-    const imageEmbeds = createImageEmbeds(data.tweetURL, imageURLS.slice(1));
+  const imageEmbeds = createImageEmbeds(data.tweetURL, imageURLS.slice(1));
 
-    if (linkPosterContent.length > 0) {
-      message.suppressEmbeds(true);
-      await message.reply({ embeds: [mainEmbed, ...imageEmbeds], repliedUser: false });
-    } else {
-      message.delete();
-      await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
-    }
-
-    await sendMediaIfAvailable(
-      message.channel,
-      videoURLS,
-      "Getting video data via API call to"
-    );
-    await sendMediaIfAvailable(
-      message.channel,
-      gifURLS,
-      "Getting gif data via API call to"
-    );
+  if (linkPosterContent.length > 0) {
+    message.suppressEmbeds(true);
+    await message.reply({ embeds: [mainEmbed, ...imageEmbeds], repliedUser: false });
+  } else {
+    message.delete();
+    await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
   }
+
+  await sendMediaIfAvailable(
+    message.channel,
+    videoURLS,
+    "Getting video data via API call to"
+  );
+  await sendMediaIfAvailable(
+    message.channel,
+    gifURLS,
+    "Getting gif data via API call to"
+  );
 });
 
 async function getServerUser(message) {
