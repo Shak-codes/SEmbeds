@@ -6,6 +6,10 @@ const authKey = process.env.DEEPL;
 const IDENTIFIER = process.env.IDENTIFIER;
 const PASSWORD = process.env.PASSWORD;
 const translator = new deepl.Translator(authKey);
+const tokenData = {
+  JWT: null,
+  expiry: null,
+}
 
 const config = require("./constants");
 
@@ -20,10 +24,11 @@ const client = new Client({
 
 client.on("ready", (client) => {
   console.log(`${client.user.tag} is ready!`);
-  getBlueskyAccessJwt();
+  getBlueskyJWT();
 });
 
-async function getBlueskyAccessJwt() {
+async function getBlueskyJWT() {
+  if (Math.floor(Date.now() / 1000) <= tokenData.expiry - 60) return;
   const url = `${config.ENDPOINTS.BASE.BLUESKY}${config.ENDPOINTS.BLUESKY.JWT}`;
 
   const response = await fetch(url, {
@@ -35,19 +40,11 @@ async function getBlueskyAccessJwt() {
   });
 
   const { accessJwt } = await response.json();
-  console.log(accessJwt);
 
-  const jwtPayload = JSON.parse(atob(accessJwt.split('.')[1]));
-  const expTimestamp = jwtPayload.exp;
-
-  const tokenData = {
-    accessJwt,
-    expiresAt: expTimestamp
-  };
+  tokenData.accessJwt = accessJwt;
+  tokenData.expiry = JSON.parse(atob(accessJwt.split('.')[1])).exp;
 
   console.log("Access JWT and expiration:", tokenData);
-  return tokenData;
-
 }
 
 const tweetEmbed = (
@@ -81,25 +78,52 @@ const tweetEmbed = (
 const imageEmbed = (tweetURL, imageURL) =>
   new EmbedBuilder().setURL(tweetURL).setImage(imageURL);
 
+async function fetchMessageData(message) {
+  const twitterMatch = message.content.match(config.ENDPOINTS.REGEX.TWITTER);
+  const blueskyMatch = message.content.match(config.ENDPOINTS.REGEX.BLUESKY);
+  if (!(twitterMatch || blueskyMatch)) return null;
+
+  if (twitterMatch && twitterMatch[3]) {
+    return await fetchData('twitter', `${config.ENDPOINTS.API}${twitterMatch[3]}`);
+  }
+
+  const handle = blueskyMatch[1];
+  const postid = blueskyMatch[2];
+  const url = `${config.ENDPOINTS.BASE.BLUESKY}${config.ENDPOINTS.BLUESKY.DID}${handle}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" }
+  });
+
+  if (!response.ok) throw new Error("Failed to fetch Bluesky DID data");
+
+  const didData = await response.json();
+  console.log(didData.did);
+
+  // Fetch Bluesky post data
+  return await fetchData('bluesky', `${config.ENDPOINTS.BASE.BLUESKY}${config.ENDPOINTS.BLUESKY.POST}${didData.did}/app.bsky.feed.post/${postid}`);
+}
+
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
+
+  const twitterMatch = message.content.match(config.ENDPOINTS.REGEX.TWITTER);
+  const blueskyMatch = message.content.match(config.ENDPOINTS.REGEX.BLUESKY);
+
+  if (!(twitterMatch || blueskyMatch)) return;
+
+  const data = await fetchMessageData(message);
+  console.log(data);
 
   const serverUser = await getServerUser(message);
   const { nickname, avatar } = getNicknameAndAvatar(serverUser);
 
-  const matches = message.content.match(config.ENDPOINTS.REGEX.TWITTER);
-  if (!(matches && matches[3])) return;
-  
-  console.log(`Tweet ID: ${matches[3]}`);
-  const data = await fetchData(matches[3]);
-
-  if (!data) return;
-  console.log("Tweet data obtained");
-
+  if (blueskyMatch) return;
   const { text, translated, imageURLS, videoURLS, gifURLS } =
     await processTweetData(data);
 
-  const linkPosterContent = message.content.replace(matches[0], "").trim();
+  const linkPosterContent = message.content.replace(twitterMatch[0], "").trim();
   console.log(`Discord message content: ${linkPosterContent}`);
   console.log(`Tweet text: ${text}`);
   console.log(`Tweet images`);
@@ -153,9 +177,23 @@ function getNicknameAndAvatar(serverUser) {
   return { nickname, avatar };
 }
 
-async function fetchData(tweetID) {
-  const response = await fetch(`${config.ENDPOINTS.API}${tweetID}`);
-  return response.status >= 400 ? null : await response.json();
+async function fetchData(variant, url) {
+  if (variant == "twitter") {
+    const response = await fetch(url);
+    return response.status >= 400 ? null : await response.json();
+  }
+  console.log(url);
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${tokenData.JWT}`,
+      "Content-Type": "application/json"
+    }
+  });
+
+  const data = await response.json();
+  console.log("Fetched Data:", data);
+  return data;
 }
 
 async function processTweetData(data) {
