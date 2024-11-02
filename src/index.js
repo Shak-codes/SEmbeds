@@ -1,6 +1,10 @@
-require("dotenv").config();
-const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
-const deepl = require('deepl-node');
+import dotenv from 'dotenv';
+import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
+import deepl from 'deepl-node';
+import { req } from "./utils.js";
+import { EMOJIS, ENDPOINTS } from './constants.js';
+
+dotenv.config();
 
 const authKey = process.env.DEEPL;
 const IDENTIFIER = process.env.IDENTIFIER;
@@ -10,8 +14,6 @@ const tokenData = {
   JWT: null,
   expiry: null,
 }
-
-const config = require("./constants");
 
 const client = new Client({
   intents: [
@@ -29,19 +31,19 @@ client.on("ready", (client) => {
 
 async function getBlueskyJWT() {
   if (Math.floor(Date.now() / 1000) <= tokenData.expiry - 60) return;
-  const url = `${config.ENDPOINTS.BASE.BLUESKY}${config.ENDPOINTS.BLUESKY.JWT}`;
+  const url = `${ENDPOINTS.BASE.BLUESKY}${ENDPOINTS.BLUESKY.JWT}`;
 
-  const response = await fetch(url, {
+  const response = await req(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ identifier: IDENTIFIER, password: PASSWORD })
+    body: { identifier: IDENTIFIER, password: PASSWORD }
   });
 
-  const { accessJwt } = await response.json();
+  const { accessJwt } = await response;
 
-  tokenData.accessJwt = accessJwt;
+  tokenData.JWT = accessJwt;
   tokenData.expiry = JSON.parse(atob(accessJwt.split('.')[1])).exp;
 
   console.log("Access JWT and expiration:", tokenData);
@@ -59,14 +61,14 @@ const tweetEmbed = (
     .setColor(0x0099ff)
     .setAuthor({
       name: `${data.user_name} (@${data.user_screen_name})`,
-      url: `${config.ENDPOINTS.BASE.TWITTER}${data.user_screen_name}`,
+      url: `${ENDPOINTS.BASE.TWITTER}${data.user_screen_name}`,
       iconURL: data.user_profile_image_url,
     })
     .setTitle(translated ? 'Tweet (Translated)' : 'Tweet')
     .setURL(data.tweetURL)
     .setDescription(tweetContent)
     .addFields({
-      name: `${config.EMOJIS.LIKES} ${data.likes}    ${config.EMOJIS.RETWEETS} ${data.retweets}    ${config.EMOJIS.REPLIES} ${data.replies}`,
+      name: `${EMOJIS.LIKES} ${data.likes}    ${EMOJIS.RETWEETS} ${data.retweets}    ${EMOJIS.REPLIES} ${data.replies}`,
       value: ` `,
     })
     .setImage(image)
@@ -79,17 +81,17 @@ const imageEmbed = (tweetURL, imageURL) =>
   new EmbedBuilder().setURL(tweetURL).setImage(imageURL);
 
 async function fetchMessageData(message) {
-  const twitterMatch = message.content.match(config.ENDPOINTS.REGEX.TWITTER);
-  const blueskyMatch = message.content.match(config.ENDPOINTS.REGEX.BLUESKY);
+  const twitterMatch = message.content.match(ENDPOINTS.REGEX.TWITTER);
+  const blueskyMatch = message.content.match(ENDPOINTS.REGEX.BLUESKY);
   if (!(twitterMatch || blueskyMatch)) return null;
 
   if (twitterMatch && twitterMatch[3]) {
-    return await fetchData('twitter', `${config.ENDPOINTS.API}${twitterMatch[3]}`);
+    return await fetchData('twitter', `${ENDPOINTS.API}${twitterMatch[3]}`);
   }
 
   const handle = blueskyMatch[1];
   const postid = blueskyMatch[2];
-  const url = `${config.ENDPOINTS.BASE.BLUESKY}${config.ENDPOINTS.BLUESKY.DID}${handle}`;
+  const url = `${ENDPOINTS.BASE.BLUESKY}${ENDPOINTS.BLUESKY.DID}${handle}`;
 
   const response = await fetch(url, {
     method: "GET",
@@ -102,14 +104,14 @@ async function fetchMessageData(message) {
   console.log(didData.did);
 
   // Fetch Bluesky post data
-  return await fetchData('bluesky', `${config.ENDPOINTS.BASE.BLUESKY}${config.ENDPOINTS.BLUESKY.POST}${didData.did}/app.bsky.feed.post/${postid}`);
+  return await fetchData('bluesky', `${ENDPOINTS.BASE.BLUESKY}${ENDPOINTS.BLUESKY.POST}${didData.did}/app.bsky.feed.post/${postid}`);
 }
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
-  const twitterMatch = message.content.match(config.ENDPOINTS.REGEX.TWITTER);
-  const blueskyMatch = message.content.match(config.ENDPOINTS.REGEX.BLUESKY);
+  const twitterMatch = message.content.match(ENDPOINTS.REGEX.TWITTER);
+  const blueskyMatch = message.content.match(ENDPOINTS.REGEX.BLUESKY);
 
   if (!(twitterMatch || blueskyMatch)) return;
 
