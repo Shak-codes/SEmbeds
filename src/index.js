@@ -16,16 +16,14 @@ const client = new Client({
   allowedMentions: { parse: [] },
 });
 
+client.on("ready", (client) => {
+  console.log(`${client.user.tag} is ready!`);
+});
+
 const tweetEmbed = (
-  authorName,
-  authorTag,
-  authorIconURL,
-  tweetURL,
+  data,
   tweetContent,
   translated,
-  tweetLikes,
-  tweetRetweets,
-  tweetReplies,
   linkPosterUsername,
   linkPosterIconURL,
   image
@@ -33,15 +31,15 @@ const tweetEmbed = (
   new EmbedBuilder()
     .setColor(0x0099ff)
     .setAuthor({
-      name: `${authorName} (@${authorTag})`,
-      url: `${config.ENDPOINTS.BASE.TWITTER}${authorTag}`,
-      iconURL: authorIconURL,
+      name: `${data.user_name} (@${data.user_screen_name})`,
+      url: `${config.ENDPOINTS.BASE.TWITTER}${data.user_screen_name}`,
+      iconURL: data.user_profile_image_url,
     })
     .setTitle(translated ? 'Tweet (Translated)' : 'Tweet')
-    .setURL(tweetURL)
+    .setURL(data.tweetURL)
     .setDescription(tweetContent)
     .addFields({
-      name: `${config.EMOJIS.LIKES} ${tweetLikes}    ${config.EMOJIS.RETWEETS} ${tweetRetweets}    ${config.EMOJIS.REPLIES} ${tweetReplies}`,
+      name: `${config.EMOJIS.LIKES} ${data.likes}    ${config.EMOJIS.RETWEETS} ${data.retweets}    ${config.EMOJIS.REPLIES} ${data.replies}`,
       value: ` `,
     })
     .setImage(image)
@@ -53,10 +51,6 @@ const tweetEmbed = (
 const imageEmbed = (tweetURL, imageURL) =>
   new EmbedBuilder().setURL(tweetURL).setImage(imageURL);
 
-client.on("ready", (client) => {
-  console.log(`${client.user.tag} is ready!`);
-});
-
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
@@ -64,6 +58,8 @@ client.on("messageCreate", async (message) => {
   const { nickname, avatar } = getNicknameAndAvatar(serverUser);
 
   const matches = message.content.match(config.ENDPOINTS.REGEX.TWITTER);
+  if (!(matches && matches[3])) return;
+  
   if (matches && matches[3]) {
     console.log(`Tweet ID: ${matches[3]}`);
     const data = await fetchData(matches[3]);
@@ -102,7 +98,7 @@ client.on("messageCreate", async (message) => {
       message.suppressEmbeds(true);
       await message.reply({ embeds: [mainEmbed, ...imageEmbeds], repliedUser: false });
     } else {
-      deleteMessage(message);
+      message.delete();
       await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
     }
 
@@ -118,10 +114,6 @@ client.on("messageCreate", async (message) => {
     );
   }
 });
-
-function deleteMessage(message) {
-  message.delete();
-}
 
 async function getServerUser(message) {
   return await message.guild.members.fetch(message.author);
@@ -181,15 +173,9 @@ function createMainTweetEmbed(
   imageURL
 ) {
   return tweetEmbed(
-    data.user_name,
-    data.user_screen_name,
-    data.user_profile_image_url,
-    data.tweetURL,
+    data,
     text,
     translated,
-    data.likes,
-    data.retweets,
-    data.replies,
     nickname
       ? `${nickname} (${message.author.displayName})`
       : message.author.displayName,
@@ -204,34 +190,30 @@ function createImageEmbeds(tweetURL, imageURLs) {
 
 async function sendMediaIfAvailable(channel, URLS, logMessage) {
   console.log(logMessage);
-  let media = [];
+  let mediaBatch = [];
   const largeMedia = [];
-  console.log(`Initialized lengths: ${media.length} - ${largeMedia.length}`);
-  let mediaSize = 0;
-  for (let i = 0; i < URLS.length; i++) {
-    if (URLS[i]) {
-      console.log(`${logMessage} ${URLS[i]}`);
-      const response = await fetch(URLS[i], { method: "HEAD" });
-      const size = parseInt(
-        Object.fromEntries(response.headers.entries())["content-length"]
-      );
-      console.log(`size: ${size}`);
-      if (mediaSize + size > 8000000 && mediaSize.length > 0 && size <= 8000000) {
-        await channel.send({ files: media })
-        mediaSize = size;
-        media = [URLS[i]]
-      } else if (mediaSize + size <= 8000000) {
-        mediaSize += size;
-        media.push(URLS[i]);
-      } else {
-        largeMedia.push(URLS[i]);
-      }
-    }
+  const limit = 8 * 1024 * 1024;
+  let currSize = 0;
+
+  for (const url of URLS) {
+    const size = await getMediaSize(url);
+    if (currSize + size > limit && mediaBatch.length > 0) {
+      await channel.send({ files: mediaBatch })
+      currSize = size;
+      mediaBatch = [url];
+    } else if (currSize + size <= limit) {
+      currSize += size;
+      mediaBatch.push(url)
+    } else largeMedia.push(url);
   }
-  console.log(`media length: ${media.length}`);
-  console.log(`large media length: ${largeMedia}`);
-  if (media.length > 0) await channel.send({ files: media });
-  for (let i = 0; i < largeMedia.length; i++) await channel.send(largeMedia[i]);
+
+  if (mediaBatch.length > 0) await channel.send({ files: mediaBatch });
+  for (const media of largeMedia) await channel.send(media);
+}
+
+async function getMediaSize(url) {
+  const response = await fetch(url, { method: "HEAD" });
+  return parseInt(response.headers.get("content-length") || "0", 10);
 }
 
 client.login(process.env.TOKEN);
