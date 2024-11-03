@@ -152,13 +152,15 @@ client.on("ready", (client) => {
 });
 
 client.on("messageCreate", async (message) => {
-  return;
   if (message.author.bot) return;
 
   const twitterMatch = message.content.match(ENDPOINTS.REGEX.TWITTER);
   const blueskyMatch = message.content.match(ENDPOINTS.REGEX.BLUESKY);
 
   if (!(twitterMatch || blueskyMatch)) return;
+  console.log(twitterMatch);
+  console.log(blueskyMatch);
+  return;
 
   const data = await fetchPostData(twitterMatch, blueskyMatch);
 
