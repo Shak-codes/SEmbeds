@@ -40,32 +40,40 @@ async function getBlueskyJWT() {
   console.log("Access JWT and expiration:", tokenData);
 }
 
-const tweetEmbed = (
-  data,
-  tweetContent,
+const tweetEmbed = ({
+  userLink,
+  dcNickname,
+  dcDisplayName,
+  dcIcon,
+  postName,
+  postUsername,
+  postDisplayName,
+  postLink,
+  postIcon,
+  postText,
   translated,
-  linkPosterUsername,
-  linkPosterIconURL,
-  image
-) =>
+  likes,
+  retweets,
+  replies,
+  image = null
+}) =>
   new EmbedBuilder()
-    .setColor(0x0099ff)
     .setAuthor({
-      name: `${data.user_name} (@${data.user_screen_name})`,
-      url: `${ENDPOINTS.BASE.TWITTER}${data.user_screen_name}`,
-      iconURL: data.user_profile_image_url,
+      name: `${postDisplayName} (@${postUsername})`,
+      url: userLink,
+      iconURL: postIcon,
     })
-    .setTitle(translated ? 'Tweet (Translated)' : 'Tweet')
-    .setURL(data.tweetURL)
-    .setDescription(tweetContent)
+    .setTitle(translated ? `${postName} (Translated)` : postName)
+    .setURL(postLink)
+    .setDescription(postText)
     .addFields({
-      name: `${EMOJIS.LIKES} ${data.likes}    ${EMOJIS.RETWEETS} ${data.retweets}    ${EMOJIS.REPLIES} ${data.replies}`,
+      name: `${EMOJIS.LIKES} ${likes}    ${EMOJIS.RETWEETS} ${retweets}    ${EMOJIS.REPLIES} ${replies}`,
       value: ` `,
     })
     .setImage(image)
     .setFooter({
-      text: `Posted by ${linkPosterUsername}`,
-      iconURL: linkPosterIconURL,
+      text: `Posted by ${dcNickname ? `${dcNickname} (${dcDisplayName})` : dcDisplayName}`,
+      iconURL: dcIcon,
     });
 
 const imageEmbed = (tweetURL, imageURL) =>
@@ -76,6 +84,7 @@ async function fetchPostData(twitterMatch, blueskyMatch) {
     return await req(`${ENDPOINTS.API}${twitterMatch[3]}`);
   }
 
+  await getBlueskyJWT();
   const handle = blueskyMatch[1];
   const postid = blueskyMatch[2];
   const url = `${ENDPOINTS.BASE.BLUESKY}${ENDPOINTS.BLUESKY.DID}${handle}`;
@@ -91,27 +100,6 @@ async function fetchPostData(twitterMatch, blueskyMatch) {
       "Content-Type": "application/json"
     }
   });
-}
-
-function createMainTweetEmbed(
-  message,
-  data,
-  nickname,
-  avatar,
-  text,
-  translated,
-  imageURL
-) {
-  return tweetEmbed(
-    data,
-    text,
-    translated,
-    nickname
-      ? `${nickname} (${message.author.displayName})`
-      : message.author.displayName,
-    avatar,
-    imageURL
-  );
 }
 
 function createImageEmbeds(tweetURL, imageURLs) {
@@ -162,24 +150,18 @@ client.on("messageCreate", async (message) => {
   const postData = await fetchPostData(twitterMatch, blueskyMatch);
   const embedData = await compileEmbedData(message, twitterMatch, blueskyMatch, postData);
   if (blueskyMatch) embedData.postLink = blueskyMatch[0];
-  console.log(embedData);
-  return;
+  if (twitterMatch) embedData.image = embedData.imageURLS[0];
 
-  const mainEmbed = createMainTweetEmbed(
-    message,
-    data,
-    nickname,
-    avatar,
-    text,
-    translated,
-    imageURLS[0]
-  );
+  console.log(`embedData:`);
+  console.log(embedData);
+
+  const mainEmbed = tweetEmbed(embedData);
 
   console.log("Main embed created!");
 
-  const imageEmbeds = createImageEmbeds(data.tweetURL, imageURLS.slice(1));
+  const imageEmbeds = createImageEmbeds(embedData.postLink, embedData.imageURLS.slice(1));
 
-  if (linkPosterContent.length > 0) {
+  if (embedData.dcText.length > 0) {
     message.suppressEmbeds(true);
     await message.reply({ embeds: [mainEmbed, ...imageEmbeds], repliedUser: false });
   } else {
@@ -189,12 +171,12 @@ client.on("messageCreate", async (message) => {
 
   await sendMediaIfAvailable(
     message.channel,
-    videoURLS,
+    embedData.videoURLS,
     "Getting video data via API call to"
   );
   await sendMediaIfAvailable(
     message.channel,
-    gifURLS,
+    embedData.gifURLS,
     "Getting gif data via API call to"
   );
 });

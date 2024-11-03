@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import deepl from 'deepl-node';
+import { ENDPOINTS } from './constants.js';
 
 dotenv.config();
 
@@ -42,6 +43,8 @@ export async function req(url, { method = "GET", headers = {}, body = null } = {
 
 async function parseTweet(data) {
   const response = {
+    userLink: `https://twitter.com/${data.user_screen_name}`,
+    postName: 'Tweet',
     postUsername: data.user_screen_name,
     postDisplayName: data.user_name,
     postLink: data.tweetURL,
@@ -77,6 +80,8 @@ async function parseTweet(data) {
 async function parseBsky(data) {
   const post = data.thread.post;
   const response = {
+    userLink: `https://bsky.app/profile/${post.author.handle}`,
+    postName: 'Post',
     postUsername: post.author.handle,
     postDisplayName: post.author.displayName,
     postIcon: post.author.avatar,
@@ -87,9 +92,9 @@ async function parseBsky(data) {
     retweets: post.repostCount + post.quoteCount,
     replies: post.replyCount,
   }
-    //   const imageURLS = getMediaURLsByType(data.media_extended, "image");
-    //   const videoURLS = getMediaURLsByType(data.media_extended, "video");
-    //   const gifURLS = getMediaURLsByType(data.media_extended, "gif");
+  response.imageURLS = [];
+  response.videoURLS = [];
+  response.gifURLS = [];
 
   if (response.postLang === "en") return response;
 
