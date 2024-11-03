@@ -1,15 +1,12 @@
 import dotenv from 'dotenv';
 import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
-import deepl from 'deepl-node';
-import { req } from "./utils.js";
+import { req, compileEmbedData } from "./utils.js";
 import { EMOJIS, ENDPOINTS } from './constants.js';
 
 dotenv.config();
 
-const authKey = process.env.DEEPL;
 const IDENTIFIER = process.env.IDENTIFIER;
 const PASSWORD = process.env.PASSWORD;
-const translator = new deepl.Translator(authKey);
 const tokenData = {
   JWT: null,
   expiry: null,
@@ -24,24 +21,18 @@ const client = new Client({
   allowedMentions: { parse: [] },
 });
 
-client.on("ready", (client) => {
-  console.log(`${client.user.tag} is ready!`);
-  getBlueskyJWT();
-});
-
 async function getBlueskyJWT() {
   if (Math.floor(Date.now() / 1000) <= tokenData.expiry - 60) return;
+  console.log('Grabbing JWT');
   const url = `${ENDPOINTS.BASE.BLUESKY}${ENDPOINTS.BLUESKY.JWT}`;
 
-  const response = await req(url, {
+  const { accessJwt } = await req(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
     body: { identifier: IDENTIFIER, password: PASSWORD }
   });
-
-  const { accessJwt } = await response;
 
   tokenData.JWT = accessJwt;
   tokenData.expiry = JSON.parse(atob(accessJwt.split('.')[1])).exp;
@@ -80,155 +71,26 @@ const tweetEmbed = (
 const imageEmbed = (tweetURL, imageURL) =>
   new EmbedBuilder().setURL(tweetURL).setImage(imageURL);
 
-async function fetchMessageData(message) {
-  const twitterMatch = message.content.match(ENDPOINTS.REGEX.TWITTER);
-  const blueskyMatch = message.content.match(ENDPOINTS.REGEX.BLUESKY);
-  if (!(twitterMatch || blueskyMatch)) return null;
-
+async function fetchPostData(twitterMatch, blueskyMatch) {
   if (twitterMatch && twitterMatch[3]) {
-    return await fetchData('twitter', `${ENDPOINTS.API}${twitterMatch[3]}`);
+    return await req(`${ENDPOINTS.API}${twitterMatch[3]}`);
   }
 
   const handle = blueskyMatch[1];
   const postid = blueskyMatch[2];
   const url = `${ENDPOINTS.BASE.BLUESKY}${ENDPOINTS.BLUESKY.DID}${handle}`;
 
-  const response = await fetch(url, {
+  const { did } = await req(url, {
     method: "GET",
     headers: { "Content-Type": "application/json" }
   });
 
-  if (!response.ok) throw new Error("Failed to fetch Bluesky DID data");
-
-  const didData = await response.json();
-  console.log(didData.did);
-
-  // Fetch Bluesky post data
-  return await fetchData('bluesky', `${ENDPOINTS.BASE.BLUESKY}${ENDPOINTS.BLUESKY.POST}${didData.did}/app.bsky.feed.post/${postid}`);
-}
-
-client.on("messageCreate", async (message) => {
-  if (message.author.bot) return;
-
-  const twitterMatch = message.content.match(ENDPOINTS.REGEX.TWITTER);
-  const blueskyMatch = message.content.match(ENDPOINTS.REGEX.BLUESKY);
-
-  if (!(twitterMatch || blueskyMatch)) return;
-
-  const data = await fetchMessageData(message);
-  console.log(data);
-
-  const serverUser = await getServerUser(message);
-  const { nickname, avatar } = getNicknameAndAvatar(serverUser);
-
-  if (blueskyMatch) return;
-  const { text, translated, imageURLS, videoURLS, gifURLS } =
-    await processTweetData(data);
-
-  const linkPosterContent = message.content.replace(twitterMatch[0], "").trim();
-  console.log(`Discord message content: ${linkPosterContent}`);
-  console.log(`Tweet text: ${text}`);
-  console.log(`Tweet images`);
-  console.table(imageURLS);
-  console.log(`Tweet videos`);
-  console.table(videoURLS);
-  console.log(`Tweet gifs`);
-  console.table(gifURLS);
-
-  const mainEmbed = createMainTweetEmbed(
-    message,
-    data,
-    nickname,
-    avatar,
-    text,
-    translated,
-    imageURLS[0]
-  );
-
-  console.log("Main embed created!");
-
-  const imageEmbeds = createImageEmbeds(data.tweetURL, imageURLS.slice(1));
-
-  if (linkPosterContent.length > 0) {
-    message.suppressEmbeds(true);
-    await message.reply({ embeds: [mainEmbed, ...imageEmbeds], repliedUser: false });
-  } else {
-    message.delete();
-    await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
-  }
-
-  await sendMediaIfAvailable(
-    message.channel,
-    videoURLS,
-    "Getting video data via API call to"
-  );
-  await sendMediaIfAvailable(
-    message.channel,
-    gifURLS,
-    "Getting gif data via API call to"
-  );
-});
-
-async function getServerUser(message) {
-  return await message.guild.members.fetch(message.author);
-}
-
-function getNicknameAndAvatar(serverUser) {
-  const nickname = serverUser.nickname;
-  const avatar = serverUser.displayAvatarURL();
-  return { nickname, avatar };
-}
-
-async function fetchData(variant, url) {
-  if (variant == "twitter") {
-    const response = await fetch(url);
-    return response.status >= 400 ? null : await response.json();
-  }
-  console.log(url);
-  const response = await fetch(url, {
-    method: "GET",
+  return await req(`${ENDPOINTS.BASE.BLUESKY}${ENDPOINTS.BLUESKY.POST}${did}/app.bsky.feed.post/${postid}`, {
     headers: {
       "Authorization": `Bearer ${tokenData.JWT}`,
       "Content-Type": "application/json"
     }
   });
-
-  const data = await response.json();
-  console.log("Fetched Data:", data);
-  return data;
-}
-
-async function processTweetData(data) {
-  const { text, lang } = data;
-  const translated = lang === "en" ? false : true;
-
-  const imageURLS = getMediaURLsByType(data.media_extended, "image");
-  const videoURLS = getMediaURLsByType(data.media_extended, "video");
-  const gifURLS = getMediaURLsByType(data.media_extended, "gif");
-
-  const response = { text, translated, imageURLS, videoURLS, gifURLS };
-
-  if (!translated) return response;
-
-  try {
-    const translation = await translator.translateText(text, null, 'EN-US', {
-      splitSentences: 'nonewlines',
-    });
-    const translatedText = translation.text;
-    response.text = translatedText;
-    console.log(`Translated tweetContent: ${translatedText}`);
-  } catch (translationError) {
-    console.error('Error translating text:', translationError);
-    response.translated = false;
-  }
-  return response;
-}
-
-
-function getMediaURLsByType(mediaList, type) {
-  return mediaList
-    .filter((media) => media.type === type)
-    .map((item) => item.url);
 }
 
 function createMainTweetEmbed(
@@ -283,5 +145,55 @@ async function getMediaSize(url) {
   const response = await fetch(url, { method: "HEAD" });
   return parseInt(response.headers.get("content-length") || "0", 10);
 }
+
+client.on("ready", (client) => {
+  console.log(`${client.user.tag} is ready!`);
+  getBlueskyJWT();
+});
+
+client.on("messageCreate", async (message) => {
+  return;
+  if (message.author.bot) return;
+
+  const twitterMatch = message.content.match(ENDPOINTS.REGEX.TWITTER);
+  const blueskyMatch = message.content.match(ENDPOINTS.REGEX.BLUESKY);
+
+  if (!(twitterMatch || blueskyMatch)) return;
+
+  const data = await fetchPostData(twitterMatch, blueskyMatch);
+
+  const mainEmbed = createMainTweetEmbed(
+    message,
+    data,
+    nickname,
+    avatar,
+    text,
+    translated,
+    imageURLS[0]
+  );
+
+  console.log("Main embed created!");
+
+  const imageEmbeds = createImageEmbeds(data.tweetURL, imageURLS.slice(1));
+
+  if (linkPosterContent.length > 0) {
+    message.suppressEmbeds(true);
+    await message.reply({ embeds: [mainEmbed, ...imageEmbeds], repliedUser: false });
+  } else {
+    message.delete();
+    await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
+  }
+
+  await sendMediaIfAvailable(
+    message.channel,
+    videoURLS,
+    "Getting video data via API call to"
+  );
+  await sendMediaIfAvailable(
+    message.channel,
+    gifURLS,
+    "Getting gif data via API call to"
+  );
+});
 
 client.login(process.env.TOKEN);
