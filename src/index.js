@@ -158,11 +158,12 @@ client.on("messageCreate", async (message) => {
   const blueskyMatch = message.content.match(ENDPOINTS.REGEX.BLUESKY);
 
   if (!(twitterMatch || blueskyMatch)) return;
-  console.log(twitterMatch);
-  console.log(blueskyMatch);
-  return;
 
-  const data = await fetchPostData(twitterMatch, blueskyMatch);
+  const postData = await fetchPostData(twitterMatch, blueskyMatch);
+  const embedData = await compileEmbedData(message, twitterMatch, blueskyMatch, postData);
+  if (blueskyMatch) embedData.postLink = blueskyMatch[0];
+  console.log(embedData);
+  return;
 
   const mainEmbed = createMainTweetEmbed(
     message,

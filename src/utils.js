@@ -42,8 +42,8 @@ export async function req(url, { method = "GET", headers = {}, body = null } = {
 
 async function parseTweet(data) {
   const response = {
-    postUsername: data.user_name,
-    postDisplayName: data.display_name,
+    postUsername: data.user_screen_name,
+    postDisplayName: data.user_name,
     postLink: data.tweetURL,
     postIcon: data.user_profile_image_url,
     postText: data.text,
@@ -61,11 +61,11 @@ async function parseTweet(data) {
   if (response.twLang === "en") return response;
 
   try {
-    const translation = await translator.translateText(text, null, 'EN-US', {
+    const translation = await translator.translateText(response.postText, null, 'EN-US', {
       splitSentences: 'nonewlines',
     });
     const translatedText = translation.text;
-    response.text = translatedText;
+    response.postText = translatedText;
     response.translated = true;
     console.log(`Translated Tweet: ${translatedText}`);
   } catch (translationError) {
@@ -75,12 +75,11 @@ async function parseTweet(data) {
 }
 
 async function parseBsky(data) {
-  post = data.thread.post;
+  const post = data.thread.post;
   const response = {
     postUsername: post.author.handle,
     postDisplayName: post.author.displayName,
-    postLink: post.tweetURL, // fix
-    postIcon: post.authhor.avatar,
+    postIcon: post.author.avatar,
     postText: post.record.text,
     postLang: post.record.langs[0],
     translated: false,
@@ -95,11 +94,11 @@ async function parseBsky(data) {
   if (response.postLang === "en") return response;
 
   try {
-    const translation = await translator.translateText(text, null, 'EN-US', {
+    const translation = await translator.translateText(response.postText, null, 'EN-US', {
       splitSentences: 'nonewlines',
     });
     const translatedText = translation.text;
-    response.text = translatedText;
+    response.postText = translatedText;
     response.translated = true;
     console.log(`Translated Tweet: ${translatedText}`);
   } catch (translationError) {
