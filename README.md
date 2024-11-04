@@ -1,5 +1,5 @@
-# TwitterFix
-**Fix Discord's janky embeds when it comes to Twitter/X links.**
+# SEmbeds
+**Fix Discord's janky embeds when it comes to X/Bluesky links.**
 
 ## Features
 - Automatically fixes embeds from tweets sent into your discord server, no more typing vx in front of your links!
