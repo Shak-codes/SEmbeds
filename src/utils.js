@@ -25,8 +25,6 @@ export async function req(url, { method = "GET", headers = {}, body = null } = {
   };
 
   if (body && method !== "GET") options.body = JSON.stringify(body);
-  console.log(`Creating request to ${url}`);
-  console.log(options);
   
   try {
     const response = await fetch(url, options);
