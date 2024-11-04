@@ -58,8 +58,9 @@ const tweetEmbed = ({
   image = null
 }) =>
   new EmbedBuilder()
+    .setColor(`${postName === "Tweet" ? '#000000' : '#1DA1F2'}`)
     .setAuthor({
-      name: `${postDisplayName} (@${postUsername})`,
+      name: `${postDisplayName} (@${postUsername}) on ${postName === "Tweet" ? 'X' : 'Bluesky'}`,
       url: userLink,
       iconURL: postIcon,
     })
@@ -107,6 +108,7 @@ function createImageEmbeds(tweetURL, imageURLs) {
 }
 
 async function sendMediaIfAvailable(channel, URLS, logMessage) {
+  if (URLS.length == 0) return;
   console.log(logMessage);
   let mediaBatch = [];
   const largeMedia = [];
@@ -136,7 +138,6 @@ async function getMediaSize(url) {
 
 client.on("ready", (client) => {
   console.log(`${client.user.tag} is ready!`);
-  getBlueskyJWT();
 });
 
 client.on("messageCreate", async (message) => {
@@ -147,17 +148,18 @@ client.on("messageCreate", async (message) => {
 
   if (!(twitterMatch || blueskyMatch)) return;
 
+  if (message.guild) {
+    console.log(`Recognized a tweet/post in ${message.guild.name}'s ${message.channel.name} chat.`);
+  }
+
   const postData = await fetchPostData(twitterMatch, blueskyMatch);
   const embedData = await compileEmbedData(message, twitterMatch, blueskyMatch, postData);
   if (blueskyMatch) embedData.postLink = blueskyMatch[0];
-  if (twitterMatch) embedData.image = embedData.imageURLS[0];
-
-  console.log(`embedData:`);
-  console.log(embedData);
+  embedData.image = embedData.imageURLS[0];
 
   const mainEmbed = tweetEmbed(embedData);
 
-  console.log("Main embed created!");
+  console.log("Main embed created successfully!");
 
   const imageEmbeds = createImageEmbeds(embedData.postLink, embedData.imageURLS.slice(1));
 

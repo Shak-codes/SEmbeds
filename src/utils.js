@@ -1,16 +1,18 @@
 import dotenv from 'dotenv';
 import deepl from 'deepl-node';
-import { ENDPOINTS } from './constants.js';
 
 dotenv.config();
 
 const authKey = process.env.DEEPL;
 const translator = new deepl.Translator(authKey);
 
-function getMediaURLsByType(mediaList, type) {
-  return mediaList
+function getMediaURLsByType(host, mediaList, type) {
+  if (host === "twitter") {
+    return mediaList
     .filter((media) => media.type === type)
     .map((item) => item.url);
+  }
+  return mediaList.map((media) => media.fullsize);
 }
 
 export async function req(url, { method = "GET", headers = {}, body = null } = {}) {
@@ -57,9 +59,9 @@ async function parseTweet(data) {
     replies: data.replies,
   };
 
-  response.imageURLS = getMediaURLsByType(data.media_extended, "image");
-  response.videoURLS = getMediaURLsByType(data.media_extended, "video");
-  response.gifURLS = getMediaURLsByType(data.media_extended, "gif");
+  response.imageURLS = getMediaURLsByType("twitter", data.media_extended, "image");
+  response.videoURLS = getMediaURLsByType("twitter", data.media_extended, "video");
+  response.gifURLS = getMediaURLsByType("twitter", data.media_extended, "gif");
 
   if (response.twLang === "en") return response;
 
@@ -70,7 +72,7 @@ async function parseTweet(data) {
     const translatedText = translation.text;
     response.postText = translatedText;
     response.translated = true;
-    console.log(`Translated Tweet: ${translatedText}`);
+    console.log(`Translated Tweet!`);
   } catch (translationError) {
     console.error('Error translating text:', translationError);
   }
@@ -92,7 +94,8 @@ async function parseBsky(data) {
     retweets: post.repostCount + post.quoteCount,
     replies: post.replyCount,
   }
-  response.imageURLS = [];
+  response.imageURLS = 'images' in post.embed ? getMediaURLsByType("bluesky", post.embed.images, "image") : [];
+  if ('images' in post.embed) console.log(`Bluesky images ${response.imageURLS}`);
   response.videoURLS = [];
   response.gifURLS = [];
 
@@ -105,7 +108,7 @@ async function parseBsky(data) {
     const translatedText = translation.text;
     response.postText = translatedText;
     response.translated = true;
-    console.log(`Translated Tweet: ${translatedText}`);
+    console.log(`Translated Bluesky post.`);
   } catch (translationError) {
     console.error('Error translating text:', translationError);
   }
@@ -124,11 +127,16 @@ export async function compileEmbedData(message, twitterMatch, blueskyMatch, post
     response = await parseBsky(postData);
   }
 
-  return { 
+  const embedData = { 
     dcNickname: serverUser.nickname,
     dcDisplayName: message.author.displayName,
     dcIcon: serverUser.displayAvatarURL(),
     dcText,
     ...response  
   }
+
+  console.log('Embed data...');
+  console.log(embedData);
+
+  return embedData;
 }
