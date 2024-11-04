@@ -37,7 +37,7 @@ async function getBlueskyJWT() {
   tokenData.JWT = accessJwt;
   tokenData.expiry = JSON.parse(atob(accessJwt.split('.')[1])).exp;
 
-  console.log("Access JWT and expiration:", tokenData);
+  console.log("JWT successfully obtained");
 }
 
 const tweetEmbed = ({
