@@ -44,6 +44,8 @@ export async function req(url, { method = "GET", headers = {}, body = null } = {
 }
 
 async function parseTweet(data) {
+  console.log('Tweet data');
+  console.log(data);
   const response = {
     userLink: `https://twitter.com/${data.user_screen_name}`,
     postName: 'Tweet',
@@ -52,7 +54,7 @@ async function parseTweet(data) {
     postLink: data.tweetURL,
     postIcon: data.user_profile_image_url,
     postText: data.text,
-    postLang: data.lang,
+    postLang: data.lang || 'en',
     translated: false,
     likes: data.likes,
     retweets: data.retweets,
