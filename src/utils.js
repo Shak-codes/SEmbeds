@@ -44,8 +44,6 @@ export async function req(url, { method = "GET", headers = {}, body = null } = {
 }
 
 async function parseTweet(data) {
-  console.log('Tweet data');
-  console.log(data);
   const response = {
     userLink: `https://twitter.com/${data.user_screen_name}`,
     postName: 'Tweet',
@@ -54,7 +52,7 @@ async function parseTweet(data) {
     postLink: data.tweetURL,
     postIcon: data.user_profile_image_url,
     postText: data.text,
-    postLang: data.lang || 'en',
+    postLang: data.lang,
     translated: false,
     likes: data.likes,
     retweets: data.retweets,
@@ -65,8 +63,7 @@ async function parseTweet(data) {
   response.videoURLS = getMediaURLsByType("twitter", data.media_extended, "video");
   response.gifURLS = getMediaURLsByType("twitter", data.media_extended, "gif");
 
-  console.log(`Tweet language: ${response.twLang}`);
-  if (response.twLang === "en") return response;
+  if (response.postLang === "en") return response;
 
   try {
     const translation = await translator.translateText(response.postText, null, 'EN-US', {
