@@ -142,7 +142,7 @@ client.on("ready", (client) => {
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
-
+  
   const twitterMatch = message.content.match(ENDPOINTS.REGEX.TWITTER);
   const blueskyMatch = message.content.match(ENDPOINTS.REGEX.BLUESKY);
 

@@ -63,6 +63,7 @@ async function parseTweet(data) {
   response.videoURLS = getMediaURLsByType("twitter", data.media_extended, "video");
   response.gifURLS = getMediaURLsByType("twitter", data.media_extended, "gif");
 
+  console.log(`Tweet language: ${response.twLang}`);
   if (response.twLang === "en") return response;
 
   try {
