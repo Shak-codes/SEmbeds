@@ -1,5 +1,5 @@
-import dotenv from 'dotenv';
-import deepl from 'deepl-node';
+import dotenv from "dotenv";
+import deepl from "deepl-node";
 
 dotenv.config();
 
@@ -9,26 +9,29 @@ const translator = new deepl.Translator(authKey);
 function getMediaURLsByType(host, mediaList, type) {
   if (host === "twitter") {
     return mediaList
-    .filter((media) => media.type === type)
-    .map((item) => item.url);
+      .filter((media) => media.type === type)
+      .map((item) => item.url);
   }
   return mediaList.map((media) => media.fullsize);
 }
 
-export async function req(url, { method = "GET", headers = {}, body = null } = {}) {
+export async function req(
+  url,
+  { method = "GET", headers = {}, body = null } = {}
+) {
   const options = {
     method,
     headers: {
       "Content-Type": "application/json",
-      ...headers
-    }
+      ...headers,
+    },
   };
 
   if (body && method !== "GET") options.body = JSON.stringify(body);
-  
+
   try {
     const response = await fetch(url, options);
-    
+
     if (!response.ok) {
       throw new Error(`Error: ${response.status} ${response.statusText}`);
     }
@@ -46,7 +49,7 @@ export async function req(url, { method = "GET", headers = {}, body = null } = {
 async function parseTweet(data) {
   const response = {
     userLink: `https://twitter.com/${data.user_screen_name}`,
-    postName: 'Tweet',
+    postName: "Tweet",
     postUsername: data.user_screen_name,
     postDisplayName: data.user_name,
     postLink: data.tweetURL,
@@ -59,22 +62,35 @@ async function parseTweet(data) {
     replies: data.replies,
   };
 
-  response.imageURLS = getMediaURLsByType("twitter", data.media_extended, "image");
-  response.videoURLS = getMediaURLsByType("twitter", data.media_extended, "video");
+  response.imageURLS = getMediaURLsByType(
+    "twitter",
+    data.media_extended,
+    "image"
+  );
+  response.videoURLS = getMediaURLsByType(
+    "twitter",
+    data.media_extended,
+    "video"
+  );
   response.gifURLS = getMediaURLsByType("twitter", data.media_extended, "gif");
 
-  if (response.postLang === "en") return response;
+  if (response.postLang === "en" && !isLink(response.postText)) return response;
 
   try {
-    const translation = await translator.translateText(response.postText, null, 'EN-US', {
-      splitSentences: 'nonewlines',
-    });
+    const translation = await translator.translateText(
+      response.postText,
+      null,
+      "EN-US",
+      {
+        splitSentences: "nonewlines",
+      }
+    );
     const translatedText = translation.text;
     response.postText = translatedText;
     response.translated = true;
     console.log(`Translated Tweet!`);
   } catch (translationError) {
-    console.error('Error translating text:', translationError);
+    console.error("Error translating text:", translationError);
   }
   return response;
 }
@@ -83,7 +99,7 @@ async function parseBsky(data) {
   const post = data.thread.post;
   const response = {
     userLink: `https://bsky.app/profile/${post.author.handle}`,
-    postName: 'Post',
+    postName: "Post",
     postUsername: post.author.handle,
     postDisplayName: post.author.displayName,
     postIcon: post.author.avatar,
@@ -93,29 +109,43 @@ async function parseBsky(data) {
     likes: post.likeCount,
     retweets: post.repostCount + post.quoteCount,
     replies: post.replyCount,
-  }
-  response.imageURLS = 'images' in post.embed ? getMediaURLsByType("bluesky", post.embed.images, "image") : [];
-  if ('images' in post.embed) console.log(`Bluesky images ${response.imageURLS}`);
+  };
+  response.imageURLS =
+    "images" in post.embed
+      ? getMediaURLsByType("bluesky", post.embed.images, "image")
+      : [];
+  if ("images" in post.embed)
+    console.log(`Bluesky images ${response.imageURLS}`);
   response.videoURLS = [];
   response.gifURLS = [];
 
-  if (response.postLang === "en") return response;
+  if (response.postLang === "en" && !isLink(response.postText)) return response;
 
   try {
-    const translation = await translator.translateText(response.postText, null, 'EN-US', {
-      splitSentences: 'nonewlines',
-    });
+    const translation = await translator.translateText(
+      response.postText,
+      null,
+      "EN-US",
+      {
+        splitSentences: "nonewlines",
+      }
+    );
     const translatedText = translation.text;
     response.postText = translatedText;
     response.translated = true;
     console.log(`Translated Bluesky post.`);
   } catch (translationError) {
-    console.error('Error translating text:', translationError);
+    console.error("Error translating text:", translationError);
   }
   return response;
 }
 
-export async function compileEmbedData(message, twitterMatch, blueskyMatch, postData) {
+export async function compileEmbedData(
+  message,
+  twitterMatch,
+  blueskyMatch,
+  postData
+) {
   const serverUser = await message.guild.members.fetch(message.author);
   let dcText = null;
   let response = null;
@@ -127,16 +157,21 @@ export async function compileEmbedData(message, twitterMatch, blueskyMatch, post
     response = await parseBsky(postData);
   }
 
-  const embedData = { 
+  const embedData = {
     dcNickname: serverUser.nickname,
     dcDisplayName: message.author.displayName,
     dcIcon: serverUser.displayAvatarURL(),
     dcText,
-    ...response  
-  }
+    ...response,
+  };
 
-  console.log('Embed data...');
+  console.log("Embed data...");
   console.log(embedData);
 
   return embedData;
 }
+
+const isLink = (text) => {
+  if (!text || !text.trim()) return true;
+  return text.trim().match(URL_REGEX) !== null;
+};

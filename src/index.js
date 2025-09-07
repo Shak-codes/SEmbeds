@@ -1,7 +1,7 @@
-import dotenv from 'dotenv';
-import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
+import dotenv from "dotenv";
+import { Client, GatewayIntentBits, EmbedBuilder } from "discord.js";
 import { req, compileEmbedData } from "./utils.js";
-import { EMOJIS, ENDPOINTS } from './constants.js';
+import { EMOJIS, ENDPOINTS } from "./constants.js";
 
 dotenv.config();
 
@@ -10,7 +10,7 @@ const PASSWORD = process.env.PASSWORD;
 const tokenData = {
   JWT: null,
   expiry: null,
-}
+};
 
 const client = new Client({
   intents: [
@@ -21,24 +21,24 @@ const client = new Client({
   allowedMentions: { parse: [] },
 });
 
-async function getBlueskyJWT() {
+const getBlueskyJWT = async () => {
   if (Math.floor(Date.now() / 1000) <= tokenData.expiry - 60) return;
-  console.log('Grabbing JWT');
+  console.log("Grabbing JWT");
   const url = `${ENDPOINTS.BASE.BLUESKY}${ENDPOINTS.BLUESKY.JWT}`;
 
   const { accessJwt } = await req(url, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
-    body: { identifier: IDENTIFIER, password: PASSWORD }
+    body: { identifier: IDENTIFIER, password: PASSWORD },
   });
 
   tokenData.JWT = accessJwt;
-  tokenData.expiry = JSON.parse(atob(accessJwt.split('.')[1])).exp;
+  tokenData.expiry = JSON.parse(atob(accessJwt.split(".")[1])).exp;
 
   console.log("JWT successfully obtained");
-}
+};
 
 const tweetEmbed = ({
   userLink,
@@ -55,12 +55,14 @@ const tweetEmbed = ({
   likes,
   retweets,
   replies,
-  image = null
+  image = null,
 }) =>
   new EmbedBuilder()
-    .setColor(`${postName === "Tweet" ? '#000000' : '#1DA1F2'}`)
+    .setColor(`${postName === "Tweet" ? "#000000" : "#1DA1F2"}`)
     .setAuthor({
-      name: `${postDisplayName} (@${postUsername}) on ${postName === "Tweet" ? 'X' : 'Bluesky'}`,
+      name: `${postDisplayName} (@${postUsername}) on ${
+        postName === "Tweet" ? "X" : "Bluesky"
+      }`,
       url: userLink,
       iconURL: postIcon,
     })
@@ -73,14 +75,16 @@ const tweetEmbed = ({
     })
     .setImage(image)
     .setFooter({
-      text: `Posted by ${dcNickname ? `${dcNickname} (${dcDisplayName})` : dcDisplayName}`,
+      text: `Posted by ${
+        dcNickname ? `${dcNickname} (${dcDisplayName})` : dcDisplayName
+      }`,
       iconURL: dcIcon,
     });
 
 const imageEmbed = (tweetURL, imageURL) =>
   new EmbedBuilder().setURL(tweetURL).setImage(imageURL);
 
-async function fetchPostData(twitterMatch, blueskyMatch) {
+const fetchPostData = async (twitterMatch, blueskyMatch) => {
   if (twitterMatch && twitterMatch[3]) {
     return await req(`${ENDPOINTS.API}${twitterMatch[3]}`);
   }
@@ -92,20 +96,23 @@ async function fetchPostData(twitterMatch, blueskyMatch) {
 
   const { did } = await req(url, {
     method: "GET",
-    headers: { "Content-Type": "application/json" }
+    headers: { "Content-Type": "application/json" },
   });
 
-  return await req(`${ENDPOINTS.BASE.BLUESKY}${ENDPOINTS.BLUESKY.POST}${did}/app.bsky.feed.post/${postid}`, {
-    headers: {
-      "Authorization": `Bearer ${tokenData.JWT}`,
-      "Content-Type": "application/json"
+  return await req(
+    `${ENDPOINTS.BASE.BLUESKY}${ENDPOINTS.BLUESKY.POST}${did}/app.bsky.feed.post/${postid}`,
+    {
+      headers: {
+        Authorization: `Bearer ${tokenData.JWT}`,
+        "Content-Type": "application/json",
+      },
     }
-  });
-}
+  );
+};
 
-function createImageEmbeds(tweetURL, imageURLs) {
+const createImageEmbeds = (tweetURL, imageURLs) => {
   return imageURLs.map((imageURL) => imageEmbed(tweetURL, imageURL));
-}
+};
 
 async function sendMediaIfAvailable(channel, URLS, logMessage) {
   if (URLS.length == 0) return;
@@ -118,12 +125,12 @@ async function sendMediaIfAvailable(channel, URLS, logMessage) {
   for (const url of URLS) {
     const size = await getMediaSize(url);
     if (currSize + size > limit && mediaBatch.length > 0) {
-      await channel.send({ files: mediaBatch })
+      await channel.send({ files: mediaBatch });
       currSize = size;
       mediaBatch = [url];
     } else if (currSize + size <= limit) {
       currSize += size;
-      mediaBatch.push(url)
+      mediaBatch.push(url);
     } else largeMedia.push(url);
   }
 
@@ -131,10 +138,10 @@ async function sendMediaIfAvailable(channel, URLS, logMessage) {
   for (const media of largeMedia) await channel.send(media);
 }
 
-async function getMediaSize(url) {
+const getMediaSize = async (url) => {
   const response = await fetch(url, { method: "HEAD" });
   return parseInt(response.headers.get("content-length") || "0", 10);
-}
+};
 
 client.on("ready", (client) => {
   console.log(`${client.user.tag} is ready!`);
@@ -142,18 +149,25 @@ client.on("ready", (client) => {
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
-  
+
   const twitterMatch = message.content.match(ENDPOINTS.REGEX.TWITTER);
   const blueskyMatch = message.content.match(ENDPOINTS.REGEX.BLUESKY);
 
   if (!(twitterMatch || blueskyMatch)) return;
 
   if (message.guild) {
-    console.log(`Recognized a tweet/post in ${message.guild.name}'s ${message.channel.name} chat.`);
+    console.log(
+      `Recognized a tweet/post in ${message.guild.name}'s "${message.channel.name}" chat.`
+    );
   }
 
   const postData = await fetchPostData(twitterMatch, blueskyMatch);
-  const embedData = await compileEmbedData(message, twitterMatch, blueskyMatch, postData);
+  const embedData = await compileEmbedData(
+    message,
+    twitterMatch,
+    blueskyMatch,
+    postData
+  );
   if (blueskyMatch) embedData.postLink = blueskyMatch[0];
   embedData.image = embedData.imageURLS[0];
 
@@ -161,11 +175,17 @@ client.on("messageCreate", async (message) => {
 
   console.log("Main embed created successfully!");
 
-  const imageEmbeds = createImageEmbeds(embedData.postLink, embedData.imageURLS.slice(1));
+  const imageEmbeds = createImageEmbeds(
+    embedData.postLink,
+    embedData.imageURLS.slice(1)
+  );
 
   if (embedData.dcText.length > 0) {
     message.suppressEmbeds(true);
-    await message.reply({ embeds: [mainEmbed, ...imageEmbeds], repliedUser: false });
+    await message.reply({
+      embeds: [mainEmbed, ...imageEmbeds],
+      repliedUser: false,
+    });
   } else {
     message.delete();
     await message.channel.send({ embeds: [mainEmbed, ...imageEmbeds] });
