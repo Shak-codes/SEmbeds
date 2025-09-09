@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import { Client, GatewayIntentBits, EmbedBuilder } from "discord.js";
-import { req, compileEmbedData } from "./utils.js";
+import { req, compileEmbedData, insertPost } from "./utils.js";
 import { EMOJIS, ENDPOINTS } from "./constants.js";
 
 dotenv.config();
@@ -86,7 +86,7 @@ const imageEmbed = (tweetURL, imageURL) =>
 
 const fetchPostData = async (twitterMatch, blueskyMatch) => {
   if (twitterMatch && twitterMatch[3]) {
-    return await req(`${ENDPOINTS.API}${twitterMatch[3]}`);
+    return await req(`${ENDPOINTS.API.TWITTER}${twitterMatch[3]}`);
   }
 
   await getBlueskyJWT();
@@ -150,15 +150,22 @@ client.on("ready", (client) => {
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
+  const stats = {};
+
   const twitterMatch = message.content.match(ENDPOINTS.REGEX.TWITTER);
   const blueskyMatch = message.content.match(ENDPOINTS.REGEX.BLUESKY);
 
   if (!(twitterMatch || blueskyMatch)) return;
 
+  stats.type = "Twitter";
+
   if (message.guild) {
     console.log(
       `Recognized a tweet/post in ${message.guild.name}'s "${message.channel.name}" chat.`
     );
+    stats.serverId = message.guildId;
+    stats.timestamp = message.createdAt;
+    stats.userId = message.author.id;
   }
 
   const postData = await fetchPostData(twitterMatch, blueskyMatch);
@@ -168,8 +175,15 @@ client.on("messageCreate", async (message) => {
     blueskyMatch,
     postData
   );
-  if (blueskyMatch) embedData.postLink = blueskyMatch[0];
+  if (blueskyMatch) {
+    embedData.postLink = blueskyMatch[0];
+    stats.type = "Bluesky";
+  }
   embedData.image = embedData.imageURLS[0];
+
+  stats.imageCount = embedData.imageURLS.length;
+  stats.gifCount = embedData.gifURLS.length;
+  stats.videoCount = embedData.videoURLS.length;
 
   const mainEmbed = tweetEmbed(embedData);
 
@@ -201,6 +215,10 @@ client.on("messageCreate", async (message) => {
     embedData.gifURLS,
     "Getting gif data via API call to"
   );
+
+  console.log("Post details...", stats);
+  const insert = await insertPost(stats);
+  console.log(insert);
 });
 
 client.login(process.env.TOKEN);
