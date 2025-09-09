@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import deepl from "deepl-node";
+import { ENDPOINTS } from "./constants.js";
 
 dotenv.config();
 
@@ -74,7 +75,7 @@ async function parseTweet(data) {
   );
   response.gifURLS = getMediaURLsByType("twitter", data.media_extended, "gif");
 
-  if (response.postLang === "en" && !isLink(response.postText)) return response;
+  if (response.postLang === "en" || isLink(response.postText)) return response;
 
   try {
     const translation = await translator.translateText(
@@ -119,7 +120,7 @@ async function parseBsky(data) {
   response.videoURLS = [];
   response.gifURLS = [];
 
-  if (response.postLang === "en" && !isLink(response.postText)) return response;
+  if (response.postLang === "en" || isLink(response.postText)) return response;
 
   try {
     const translation = await translator.translateText(
@@ -173,5 +174,17 @@ export async function compileEmbedData(
 
 const isLink = (text) => {
   if (!text || !text.trim()) return true;
-  return text.trim().match(URL_REGEX) !== null;
+  return text.trim().match(ENDPOINTS.REGEX.LINK) !== null;
+};
+
+export const insertPost = async (post) => {
+  try {
+    await fetch(`${ENDPOINTS.API.DB}/api/posts/insert`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(post),
+    });
+  } catch (err) {
+    console.error("Failed to send post stats:", err);
+  }
 };
