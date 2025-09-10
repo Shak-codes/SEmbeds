@@ -23,20 +23,20 @@ SEmbeds only stores the following info, from Discord messages that contain a Twi
 - A true or false flag indicating whether the link was the first Twitter/Bluesky link the bot has processed on the given day.
 
 ## Examples
-### Linking a lone tweet
-![image](https://github.com/user-attachments/assets/d20f833e-adb9-431d-82ff-3c89c1e8c0fa)
+### Linking a lone post
+<img width="490" height="514" alt="image" src="https://github.com/user-attachments/assets/e5c6528c-9ed8-45de-86f1-5a6495923b01" />
 
-### Linking a tweet with message content
-![image](https://github.com/user-attachments/assets/481dc136-90d3-4793-9e0e-5ca595f01ba7)
+### Linking a post with message content
+<img width="491" height="927" alt="image" src="https://github.com/user-attachments/assets/3be2060b-7a06-44f3-957f-11f3f4e2af86" />
 
-### Linking a tweet with multiple images
-![image](https://github.com/user-attachments/assets/7c8b0c82-fd68-40c3-9581-6de46a526f05)
+### Linking a post with images
+<img width="494" height="676" alt="image" src="https://github.com/user-attachments/assets/850796cc-00a5-4161-ada9-706fff10341c" />
 
-### Linking a tweet with multiple videos / gifs
-![image](https://github.com/user-attachments/assets/b5bd49dd-4761-41dc-b19c-7e1d108d29d7)
+### Linking a post with videos / gifs (Tweets only)
+<img width="488" height="566" alt="image" src="https://github.com/user-attachments/assets/26c617ff-5f4a-431f-b353-479e81934b4c" />
 
-### Tweet translation
-![image](https://github.com/user-attachments/assets/0ade8af3-ca83-45c2-8ae5-fd3a41d4ba67)
+### Post translation
+<img width="491" height="367" alt="image" src="https://github.com/user-attachments/assets/20d78191-bcf3-4485-9299-67e4d07a81b6" />
 
 ### Wrapped
 TBD. Example images soon.
