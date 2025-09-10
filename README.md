@@ -11,7 +11,7 @@
 Here's a link to add the bot to your own discord server(won't hack you I promise). I recommend looking through
 the Data & Privacy section to ensure you're comfortable with the data this bot saves prior to adding it to
 your server.
-- https://discord.com/oauth2/authorize?client_id=1173714092582772868&permissions=8&scope=bot
+- https://discord.com/oauth2/authorize?client_id=1173714092582772868
 
 ## Data & Privacy
 SEmbeds only stores the following info, from Discord messages that contain a Twitter/Bluesky link:
