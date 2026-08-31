@@ -23,13 +23,13 @@ export const ENDPOINTS = {
     JWT: "com.atproto.server.createSession",
     POST: "app.bsky.feed.getPostThread?uri=at://",
     DID: "com.atproto.identity.resolveHandle?handle=",
+    BLOB: "com.atproto.sync.getBlob",
   },
 };
 
 export const IMPERSONATION = {
   WEBHOOK_NAME: "S-Embeds",
   MAX_CONTENT: 2000,
-  MAX_ATTACHMENT_BYTES: 8 * 1024 * 1024,
   MAX_USERNAME: 80,
   DELETE_EMOJI: "❌",
   OWNERSHIP_TTL_MS: 24 * 60 * 60 * 1000,

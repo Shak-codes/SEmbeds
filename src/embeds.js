@@ -30,7 +30,7 @@ export const tweetEmbed = ({
     })
     .setTitle(translated ? `${postName} (Translated)` : postName)
     .setURL(postLink)
-    .setDescription(postText)
+    .setDescription(postText || null)
     .addFields({
       name: `${EMOJIS.LIKES} ${likes}    ${EMOJIS.RETWEETS} ${retweets}    ${EMOJIS.REPLIES} ${replies}`,
       value: ` `,
