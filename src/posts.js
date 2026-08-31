@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import { req } from "./utils.js";
-import { ENDPOINTS, IMPERSONATION } from "./constants.js";
+import { ENDPOINTS } from "./constants.js";
 
 dotenv.config();
 
@@ -65,7 +65,7 @@ const getMediaSize = async (url) => {
   }
 };
 
-export async function planMediaBatches(urls) {
+export async function planMediaBatches(urls, limit) {
   const batches = [];
   const oversize = [];
   let batch = [];
@@ -74,11 +74,11 @@ export async function planMediaBatches(urls) {
   for (const url of urls) {
     const mediaSize = await getMediaSize(url);
 
-    if (size + mediaSize > IMPERSONATION.MAX_ATTACHMENT_BYTES && batch.length > 0) {
+    if (size + mediaSize > limit && batch.length > 0) {
       batches.push(batch);
       batch = [url];
       size = mediaSize;
-    } else if (size + mediaSize <= IMPERSONATION.MAX_ATTACHMENT_BYTES) {
+    } else if (size + mediaSize <= limit) {
       size += mediaSize;
       batch.push(url);
     } else {

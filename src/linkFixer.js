@@ -1,5 +1,10 @@
 import { PermissionFlagsBits } from "discord.js";
-import { compileEmbedData, insertPost } from "./utils.js";
+import {
+  compileEmbedData,
+  insertPost,
+  blueskyVideoURL,
+  uploadLimit,
+} from "./utils.js";
 import { tweetEmbed, createImageEmbeds } from "./embeds.js";
 import { fetchPostData, planMediaBatches } from "./posts.js";
 import { sendAsUser, sanitiseUsername } from "./impersonate.js";
@@ -46,14 +51,14 @@ const replyPrefix = async (message) => {
 
 // Null means too large to carry across, so the fix is abandoned rather than
 // silently dropping the user's files.
-const collectAttachments = (message) => {
+const collectAttachments = (message, limit) => {
   if (message.attachments.size === 0) return [];
 
   const total = message.attachments.reduce(
     (sum, attachment) => sum + (attachment.size ?? 0),
     0
   );
-  if (total >= IMPERSONATION.MAX_ATTACHMENT_BYTES) return null;
+  if (total >= limit) return null;
 
   return [...message.attachments.values()].map((attachment) => attachment.url);
 };
@@ -111,6 +116,9 @@ async function handleRichEmbed(message, twitterMatch, blueskyMatch) {
     return;
   }
 
+  const limit = uploadLimit(message.guild);
+  const blueskyVideo = blueskyMatch ? blueskyVideoURL(postData) : null;
+
   const embedData = await compileEmbedData(
     message,
     twitterMatch,
@@ -118,6 +126,7 @@ async function handleRichEmbed(message, twitterMatch, blueskyMatch) {
     postData
   );
   if (blueskyMatch) embedData.postLink = blueskyMatch[0];
+  if (blueskyVideo) embedData.videoURLS = [blueskyVideo];
   embedData.image = embedData.imageURLS[0];
 
   stats.imageCount = embedData.imageURLS.length;
@@ -138,17 +147,17 @@ async function handleRichEmbed(message, twitterMatch, blueskyMatch) {
   console.log("Main embed created successfully!");
 
   const delivered = impersonating
-    ? await deliverAsAuthor(message, embedData, embeds)
+    ? await deliverAsAuthor(message, embedData, embeds, limit)
     : null;
 
-  if (!delivered) await deliverAsBot(message, embedData, embeds);
+  if (!delivered) await deliverAsBot(message, embedData, embeds, limit);
 
   console.log("Post details...", stats);
   console.log(await insertPost(stats));
 }
 
-async function deliverAsAuthor(message, embedData, embeds) {
-  const files = collectAttachments(message);
+async function deliverAsAuthor(message, embedData, embeds, limit) {
+  const files = collectAttachments(message, limit);
   if (files === null) {
     console.warn("Attachments exceed the upload ceiling; skipping impersonation.");
     return null;
@@ -158,15 +167,17 @@ async function deliverAsAuthor(message, embedData, embeds) {
   const result = await impersonate(message, { content, embeds, files });
   if (!result) return null;
 
-  await sendMedia(message, result.identity, [
-    ...embedData.videoURLS,
-    ...embedData.gifURLS,
-  ]);
+  await sendMedia(
+    message,
+    result.identity,
+    [...embedData.videoURLS, ...embedData.gifURLS],
+    limit
+  );
 
   return result;
 }
 
-async function deliverAsBot(message, embedData, embeds) {
+async function deliverAsBot(message, embedData, embeds, limit) {
   if (embedData.dcText.length > 0) {
     await message.suppressEmbeds(true);
     await message.reply({ embeds, repliedUser: false });
@@ -177,16 +188,16 @@ async function deliverAsBot(message, embedData, embeds) {
 
   for (const urls of [embedData.videoURLS, embedData.gifURLS]) {
     if (urls.length === 0) continue;
-    const { batches, oversize } = await planMediaBatches(urls);
+    const { batches, oversize } = await planMediaBatches(urls, limit);
     for (const batch of batches) await message.channel.send({ files: batch });
     for (const url of oversize) await message.channel.send(url);
   }
 }
 
-async function sendMedia(message, identity, urls) {
+async function sendMedia(message, identity, urls, limit) {
   if (urls.length === 0) return;
 
-  const { batches, oversize } = await planMediaBatches(urls);
+  const { batches, oversize } = await planMediaBatches(urls, limit);
 
   for (const batch of batches) {
     const sent = await sendAsUser(message.channel, { ...identity, files: batch });

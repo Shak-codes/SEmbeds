@@ -7,13 +7,8 @@ dotenv.config();
 const authKey = process.env.DEEPL;
 const translator = new deepl.Translator(authKey);
 
-function getMediaURLsByType(host, mediaList, type) {
-  if (host === "twitter") {
-    return mediaList
-      .filter((media) => media.type === type)
-      .map((item) => item.url);
-  }
-  return mediaList.map((media) => media.fullsize);
+function getMediaURLsByType(mediaList, type) {
+  return mediaList.filter((media) => media.type === type).map((item) => item.url);
 }
 
 export async function req(
@@ -63,17 +58,9 @@ async function parseTweet(data) {
     replies: data.replies,
   };
 
-  response.imageURLS = getMediaURLsByType(
-    "twitter",
-    data.media_extended,
-    "image"
-  );
-  response.videoURLS = getMediaURLsByType(
-    "twitter",
-    data.media_extended,
-    "video"
-  );
-  response.gifURLS = getMediaURLsByType("twitter", data.media_extended, "gif");
+  response.imageURLS = getMediaURLsByType(data.media_extended, "image");
+  response.videoURLS = getMediaURLsByType(data.media_extended, "video");
+  response.gifURLS = getMediaURLsByType(data.media_extended, "gif");
 
   if (response.postLang === "en" || isLink(response.postText)) return response;
 
@@ -96,30 +83,65 @@ async function parseTweet(data) {
   return response;
 }
 
+const blueskyMedia = (embed) => {
+  if (!embed) return [];
+  const type = embed.$type ?? "";
+
+  if (type.startsWith("app.bsky.embed.recordWithMedia")) {
+    return blueskyMedia(embed.media);
+  }
+  if (Array.isArray(embed.images)) {
+    return embed.images.map((image) => image.fullsize);
+  }
+  if (type.startsWith("app.bsky.embed.external")) {
+    return embed.external?.thumb ? [embed.external.thumb] : [];
+  }
+  return [];
+};
+
+export const blueskyVideoURL = (data) => {
+  const post = data?.thread?.post;
+  const embed = post?.embed;
+  if (!embed) return null;
+
+  const type = embed.$type ?? "";
+  const video = type.startsWith("app.bsky.embed.recordWithMedia")
+    ? embed.media
+    : embed;
+
+  if (!(video?.$type ?? "").startsWith("app.bsky.embed.video")) return null;
+  if (!video.cid || !post.author?.did) return null;
+
+  const did = encodeURIComponent(post.author.did);
+  return `${ENDPOINTS.BASE.BLUESKY}${ENDPOINTS.BLUESKY.BLOB}?did=${did}&cid=${video.cid}`;
+};
+
+export const uploadLimit = (guild) => {
+  const byTier = { 0: 10, 1: 10, 2: 50, 3: 100 };
+  return (byTier[guild?.premiumTier] ?? 10) * 1024 * 1024;
+};
+
 async function parseBsky(data) {
   const post = data.thread.post;
   const response = {
     userLink: `https://bsky.app/profile/${post.author.handle}`,
     postName: "Post",
     postUsername: post.author.handle,
-    postDisplayName: post.author.displayName,
+    postDisplayName: post.author.displayName || post.author.handle,
     postIcon: post.author.avatar,
-    postText: post.record.text,
-    postLang: post.record.langs[0],
+    postText: post.record?.text ?? "",
+    postLang: post.record?.langs?.[0] ?? null,
     translated: false,
-    likes: post.likeCount,
-    retweets: post.repostCount + post.quoteCount,
-    replies: post.replyCount,
+    likes: post.likeCount ?? 0,
+    retweets: (post.repostCount ?? 0) + (post.quoteCount ?? 0),
+    replies: post.replyCount ?? 0,
   };
-  response.imageURLS =
-    "images" in post.embed
-      ? getMediaURLsByType("bluesky", post.embed.images, "image")
-      : [];
-  if ("images" in post.embed)
-    console.log(`Bluesky images ${response.imageURLS}`);
+
+  response.imageURLS = blueskyMedia(post.embed);
   response.videoURLS = [];
   response.gifURLS = [];
 
+  if (!response.postLang) return response;
   if (response.postLang === "en" || isLink(response.postText)) return response;
 
   try {
