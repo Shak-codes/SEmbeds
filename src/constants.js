@@ -25,3 +25,17 @@ export const ENDPOINTS = {
     DID: "com.atproto.identity.resolveHandle?handle=",
   },
 };
+
+export const IMPERSONATION = {
+  WEBHOOK_NAME: "S-Embeds",
+  MAX_CONTENT: 2000,
+  MAX_ATTACHMENT_BYTES: 8 * 1024 * 1024,
+  MAX_USERNAME: 80,
+  DELETE_EMOJI: "❌",
+  OWNERSHIP_TTL_MS: 24 * 60 * 60 * 1000,
+};
+
+export const DISCORD_ERRORS = {
+  UNKNOWN_WEBHOOK: 10015,
+  MAX_WEBHOOKS: 30007,
+};

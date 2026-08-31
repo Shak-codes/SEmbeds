@@ -5,22 +5,37 @@
 - Automatically fixes embeds from tweets sent into your discord server, no more typing vx in front of your links!
 - Supports multiple images / gifs / videos or even a combination of all three.
 - Translates tweets to english using DEEPL's API.
-- Spotify Wrapped-Esque Stats at the end of the year.
+- Reposts the fixed embed **as you**, with your name and avatar rather than the bot's.
+- React ❌ on your own repost to delete it.
 
-## Adding the bot
-Here's a link to add the bot to your own discord server(won't hack you I promise). I recommend looking through
-the Data & Privacy section to ensure you're comfortable with the data this bot saves prior to adding it to
-your server.
-- https://discord.com/oauth2/authorize?client_id=1173714092582772868
+## How the impersonation works
+A bot cannot edit another user's message, so the bot deletes the original and
+reposts it through a channel webhook with `username` and `avatarURL` set to the
+author's. Those are per-message fields, so **one webhook per channel** covers every
+member. The bot never creates one per user.
 
-## Data & Privacy
-SEmbeds only stores the following info, from Discord messages that contain a Twitter/Bluesky link:
-- The type of link: Twitter / Bluesky
-- The server id: used to get the name of the server for wrapped
-- The user id: used to get the name of the user for wrapped
-- The message timestamp
-- The number of images/videos/gifs in the link
-- A true or false flag indicating whether the link was the first Twitter/Bluesky link the bot has processed on the given day.
+Notes and limitations:
+- Webhooks cannot reply. Replies become a `-# ↪ replying to …` jump link instead.
+- Threads and forum posts cannot own webhooks; the parent channel's webhook is used
+  with a `threadId`.
+- Messages carrying stickers or a poll are left alone, since they cannot be reposted.
+- Ownership for the ❌ affordance is held in memory with a 24h TTL, so it does not
+  survive a restart.
+
+## Link
+Here's a link to add the bot to your own discord server(won't hack you I promise)
+- https://discord.com/oauth2/authorize?client_id=1173714092582772868&permissions=536996928&scope=bot
+
+### Required permissions
+`536996928`: View Channel, Send Messages, Manage Messages, Manage Webhooks,
+Embed Links, Attach Files, Add Reactions, Read Message History.
+
+Without Manage Messages or Manage Webhooks the bot degrades to posting the embed
+under its own name rather than going silent.
+
+### Required intents
+`Guilds`, `GuildMessages`, `MessageContent` (privileged, enable it in the developer
+portal), `GuildMessageReactions`.
 
 ## Examples
 ### Linking a lone post
