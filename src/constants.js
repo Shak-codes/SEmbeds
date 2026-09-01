@@ -1,3 +1,7 @@
+import dotenv from "dotenv";
+
+dotenv.config();
+
 export const EMOJIS = {
   LIKES: ":sparkling_heart:",
   RETWEETS: ":recycle:",
@@ -7,7 +11,8 @@ export const EMOJIS = {
 export const ENDPOINTS = {
   API: {
     TWITTER: "https://api.vxtwitter.com/Twitter/status/",
-    DB: "https://db-embeds.fly.dev",
+    DB: process.env.DB_URL ?? "https://db-embeds.fly.dev",
+    WRAPPED: "/api/wrapped/",
   },
   BASE: {
     TWITTER: "https://twitter.com/",
