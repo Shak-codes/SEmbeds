@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { Client, GatewayIntentBits, Partials } from "discord.js";
 import { handleMessageCreate, handleReactionAdd } from "./linkFixer.js";
+import { handleInteraction } from "./interactions.js";
 
 dotenv.config();
 
@@ -21,5 +22,6 @@ client.on("ready", (client) => {
 
 client.on("messageCreate", handleMessageCreate);
 client.on("messageReactionAdd", handleReactionAdd);
+client.on("interactionCreate", handleInteraction);
 
 client.login(process.env.TOKEN);
